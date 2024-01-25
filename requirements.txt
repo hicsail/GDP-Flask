@@ -1,0 +1,6 @@
+deepl
+requests
+python-dotenv
+flask
+beautifulsoup4
+APScheduler

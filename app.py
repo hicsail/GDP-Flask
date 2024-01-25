@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 from bs4 import BeautifulSoup
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -19,6 +19,10 @@ def get_target_url(country, type, keyword, page = 1):
     url = "/".join([domain, path, countryVar + searchTypeVar + keyWordVar]) + pageVar
 
     return url
+
+@app.route("/health")
+def health_check():
+    return "healthy"
 
 def scrape():
     URL = get_target_url("vn", "title", "贷款")
@@ -41,8 +45,6 @@ def scrape():
             content = article.find(id="zoom").text
             print(title)
             print(content)
-            if cnt == 1:
-                print(translator.translate_text_deepl(content))
             print(link)
             print()
 
@@ -52,6 +54,6 @@ def scrape():
 
 
 if __name__ == "__main__":
-    scheduler.add_job(scrape, "interval", minutes=1)
+    scheduler.add_job(scrape, "interval", minutes=5)
     scheduler.start()
     app.run()

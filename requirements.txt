@@ -1,6 +1,7 @@
-deepl
-requests
-python-dotenv
-flask
-beautifulsoup4
 APScheduler
+beautifulsoup4
+deepl
+flask
+pycountry
+python-dotenv
+requests

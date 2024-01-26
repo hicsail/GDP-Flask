@@ -1,12 +1,22 @@
-from flask import Flask, jsonify
+from flask import Flask
 from bs4 import BeautifulSoup
-import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 from translator import Translator
+from datetime import datetime
+from dotenv import load_dotenv
+
+import pycountry
+import requests
+import re
+import os
 
 app = Flask(__name__)
 scheduler = BackgroundScheduler()
 translator = Translator()
+terms = []
+
+with open("terms.list", "r") as file:
+    terms = file.readlines()
 
 def get_target_url(country, type, keyword, page = 1):
     domain = "http://search.mofcom.gov.cn"
@@ -24,36 +34,121 @@ def get_target_url(country, type, keyword, page = 1):
 def health_check():
     return "healthy"
 
-def scrape():
-    URL = get_target_url("vn", "title", "贷款")
-    page = requests.get(URL)
-    soup = BeautifulSoup(page.content, "html.parser")
-    div = soup.find("div", class_="wms-con").find("div", class_="s-info-box")
+result_set = set()
+def scrape_country(country, content_type, keywords):
+    new_records = []
 
-    if div:
+    # loop through all pages
+    pageNum = 1
+    while True:
+        URL = get_target_url(country, content_type, keywords, pageNum)
+        page = requests.get(URL)
+        soup = BeautifulSoup(page.content, "html.parser")
+        div = soup.find("div", class_="wms-con").find("div", class_="s-info-box")
+
         result = div.find_all("li")
-
-        cnt = 0
+        if len(result) == 0:    # no result with current search term
+            break
+        
+        # loop through all articles in current page
         for i in result:
-            if cnt > 3:
-                break
+            contype = ""
+            tm = ""
 
+            # access article page
             link = i.find("a").get("href")
-            articlePage = requests.get(link)
-            article = BeautifulSoup(articlePage.content, "html.parser")
+            article_page = requests.get(link)
+            article = BeautifulSoup(article_page.content, "html.parser")
+
+            # extract content type and publish date
+            scripts = article.find_all("script")
+            for script in scripts:
+                if "contype" in script.text:
+                    match = re.search(r'var contype = "(.*)";', script.text)
+                    if match:
+                        contype = match.group(1)
+
+                    match = re.search(r'var tm = "(.*)";', script.text)
+                    if match:
+                        tm = match.group(1)
+
+                    break
+
+            # ignore policy articles
+            if contype == "政策":
+                continue
+
+            date = datetime.strptime(tm, "%Y-%m-%d %H:%M:%S")
             title = article.find(id="artitle").text
+            for script in article.find(id="zoom").find_all("script"):
+                script.decompose()
+
             content = article.find(id="zoom").text
-            print(title)
-            print(content)
-            print(link)
-            print()
 
-            cnt += 1
-    else:
-        print("No result found")
+            # ignore duplicate articles
+            if title in result_set:
+                continue
 
+            # ignore articles without keywords
+            irrelevant = False
+            for keyword in keywords.split("+"):
+                if keyword.strip() not in content:
+                    irrelevant = True
+                    break
+
+            if irrelevant:
+                continue
+
+            result_set.add(title)
+            record = {
+                "title": title,
+                "content": content.strip(),
+                "language": "zh",
+                "source": "Ministry of Commerce of the People's Republic of China",
+                "article_publish_date": date.isoformat(),
+                "status": "unverified",
+                "article_link": link,
+                "country": pycountry.countries.get(alpha_2=country.upper()).name,
+                "translated": False
+            }
+
+            new_records.append(record)
+
+        pageNum += 1
+
+    return new_records
+
+def scrape():
+    ignore = ["CN", "HK", "MO", "TW"]
+    for country in pycountry.countries:
+        # if country.alpha_2 not in ignore:
+        if country.alpha_2 in ["AO", "VN", "CG"]:
+            print("=====================================")
+            timestart = datetime.now()
+            articles = []
+            for term in terms:
+                print(f"Scraping {country.name} for {term}")
+                country_code = country.alpha_2.lower()
+                articles.extend(scrape_country(country_code, "title", "+".join(term.split(" "))))
+                articles.extend(scrape_country(country_code, "content", "+".join(term.split(" "))))
+
+            url = os.getenv("NOCO_DB_URL")
+            headers = {"xc-auth": os.getenv("NOCO_XC_AUTH")}
+
+            for article in articles:
+                requests.post(url, headers=headers, json=article)
+
+            timeend = datetime.now()
+
+            print(f"\nScraped {len(articles)} articles from {country.name} in {timeend - timestart}")
+
+            result_set.clear()
+            
 
 if __name__ == "__main__":
-    scheduler.add_job(scrape, "interval", minutes=5)
-    scheduler.start()
+    load_dotenv()
+    # initial scrape, this process will take longer
+    scrape()
+    # scheduler.add_job(scrape, "interval", minutes=1)
+    # scheduler.start()
     app.run()

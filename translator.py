@@ -1,12 +1,9 @@
 import deepl
 import requests
-from dotenv import load_dotenv
 import os
 
 class Translator:
     def __init__(self):
-        load_dotenv()
-
         self.deepl_key = os.getenv("DEEPL_API_KEY")
         self.deepl_translator = deepl.Translator(self.deepl_key)
 

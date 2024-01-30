@@ -1,7 +1,6 @@
 from flask import Flask
 from bs4 import BeautifulSoup
 from apscheduler.schedulers.background import BackgroundScheduler
-from translator import Translator
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -12,7 +11,6 @@ import os
 
 app = Flask(__name__)
 scheduler = BackgroundScheduler()
-translator = Translator()
 terms = []
 
 with open("terms.list", "r") as file:
@@ -119,15 +117,16 @@ def scrape_country(country, content_type, keywords):
     return new_records
 
 def scrape():
+    print("[MOF Scraper] Sraping started at " + datetime.now().isoformat() + "\n")
     ignore = ["CN", "HK", "MO", "TW"]
     for country in pycountry.countries:
         # if country.alpha_2 not in ignore:
-        if country.alpha_2 in ["AO", "VN", "CG"]:
-            print("=====================================")
+        if country.alpha_2 in ["AO", "VN"]:   # for testing
+            print("[MOF Scraper] =====================================")
             timestart = datetime.now()
             articles = []
-            for term in terms:
-                print(f"Scraping {country.name} for {term}")
+            # for term in terms:
+            for term in ["贷款", "进出口 融资", "开发银行 贷款"]:   # for testing
                 country_code = country.alpha_2.lower()
                 articles.extend(scrape_country(country_code, "title", "+".join(term.split(" "))))
                 articles.extend(scrape_country(country_code, "content", "+".join(term.split(" "))))
@@ -140,7 +139,7 @@ def scrape():
 
             timeend = datetime.now()
 
-            print(f"\nScraped {len(articles)} articles from {country.name} in {timeend - timestart}")
+            print(f"\n[MOF Scraper] Scraped {len(articles)} articles from {country.name} in {timeend - timestart}")
 
             result_set.clear()
             
@@ -148,7 +147,9 @@ def scrape():
 if __name__ == "__main__":
     load_dotenv()
     # initial scrape, this process will take longer
+    print("[MOF Scraper] Start inital scraping")
     scrape()
-    # scheduler.add_job(scrape, "interval", minutes=1)
-    # scheduler.start()
+    # scheduler.add_job(scrape, "cron", month="1,7", day="1", hour="0", minute="0")
+    scheduler.add_job(scrape, "interval", minutes=10)   # for testing
+    scheduler.start()
     app.run()

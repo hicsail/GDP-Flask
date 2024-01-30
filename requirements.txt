@@ -1,6 +1,5 @@
 APScheduler
 beautifulsoup4
-deepl
 flask
 pycountry
 python-dotenv

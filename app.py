@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from dotenv import load_dotenv
-from urllib.parse import quote
 
 import pycountry
 import requests

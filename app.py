@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from dotenv import load_dotenv
+from urllib.parse import quote
 
 import pycountry
 import requests
@@ -121,21 +122,31 @@ def scrape():
     ignore = ["CN", "HK", "MO", "TW"]
     for country in pycountry.countries:
         # if country.alpha_2 not in ignore:
-        if country.alpha_2 in ["AO", "VN"]:   # for testing
+        # if country.alpha_2 in ["AO", "VN"]:   # for testing
+        if country.alpha_2 in ["VN"]:   # for testing
             print("[MOF Scraper] =====================================")
             timestart = datetime.now()
             articles = []
             # for term in terms:
-            for term in ["贷款", "进出口 融资", "开发银行 贷款"]:   # for testing
+            # for term in ["贷款", "进出口 融资", "开发银行 贷款"]:   # for testing
+            for term in ["贷款"]:   # for testing
                 country_code = country.alpha_2.lower()
                 articles.extend(scrape_country(country_code, "title", "+".join(term.split(" "))))
-                articles.extend(scrape_country(country_code, "content", "+".join(term.split(" "))))
+                # articles.extend(scrape_country(country_code, "content", "+".join(term.split(" "))))
 
             url = os.getenv("NOCO_DB_URL")
-            headers = {"xc-auth": os.getenv("NOCO_XC_AUTH")}
+            headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
 
             for article in articles:
-                requests.post(url, headers=headers, json=article)
+                params = {
+                    "where": f"(title,eq,{article['title']})"
+                }
+                
+                # check if article already exists in the database
+                req = requests.get(url, headers=headers, params=params)
+                if req.json().get("pageInfo").get("totalRows") == 0:
+                    # requests.post(url, headers=headers, json=article)
+                    print("[MOF Scraper] New article found: " + article["title"])   # for testing
 
             timeend = datetime.now()
 

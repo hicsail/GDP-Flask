@@ -142,10 +142,11 @@ def scrape():
                 }
                 
                 # check if article already exists in the database
-                req = requests.get(url, headers=headers, params=params)
-                if req.json().get("pageInfo").get("totalRows") == 0:
+                # req = requests.get(url, headers=headers, params=params)
+                # if req.json().get("pageInfo").get("totalRows") == 0:
                     # requests.post(url, headers=headers, json=article)
-                    print("[MOF Scraper] New article found: " + article["title"])   # for testing
+                    # print("[MOF Scraper] New article found: " + article["title"])   # for testing
+                print("[MOF Scraper] New article found: " + article["title"])   # for testing
 
             timeend = datetime.now()
 

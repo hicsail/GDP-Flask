@@ -162,4 +162,4 @@ if __name__ == "__main__":
     # scheduler.add_job(scrape, "cron", month="1,7", day="1", hour="0", minute="0")
     scheduler.add_job(scrape, "interval", minutes=10)   # for testing
     scheduler.start()
-    app.run()
+    app.run(port=5001)

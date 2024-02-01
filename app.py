@@ -120,7 +120,7 @@ def scrape():
     ignore = ["CN", "HK", "MO", "TW"]
     for country in pycountry.countries:
         # if country.alpha_2 not in ignore:
-        if country.alpha_2 in ["AO", "VN"]:   # for testing
+        if country.alpha_2 in ["AO"]:   # for testing
             print("[MOF Scraper] =====================================")
             timestart = datetime.now()
             articles = []
@@ -141,7 +141,6 @@ def scrape():
                 req = requests.get(url, headers=headers, params=params)
                 if req.json().get("pageInfo").get("totalRows") == 0:
                     requests.post(url, headers=headers, json=article)
-                    print("[MOF Scraper] New article found: " + article["title"])   # for testing
 
             timeend = datetime.now()
 
@@ -156,6 +155,6 @@ if __name__ == "__main__":
     print("[MOF Scraper] Start inital scraping")
     scrape()
     # scheduler.add_job(scrape, "cron", month="1,7", day="1", hour="0", minute="0")
-    scheduler.add_job(scrape, "interval", minutes=10)   # for testing
+    scheduler.add_job(scrape, "interval", minutes=15)   # for testing
     scheduler.start()
     app.run(port=5001)

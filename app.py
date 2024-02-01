@@ -52,6 +52,7 @@ def scrape_country(country, content_type, keywords):
         for i in result:
             contype = ""
             tm = ""
+            original_source = ""
 
             # access article page
             link = i.find("a").get("href")
@@ -69,6 +70,10 @@ def scrape_country(country, content_type, keywords):
                     match = re.search(r'var tm = "(.*)";', script.text)
                     if match:
                         tm = match.group(1)
+
+                    match = re.search(r'var source = "(.*)";', script.text)
+                    if match:
+                        original_source = match.group(1)
 
                     break
 
@@ -103,10 +108,12 @@ def scrape_country(country, content_type, keywords):
                 "content": content.strip(),
                 "language": "zh",
                 "source": "Ministry of Commerce of the People's Republic of China",
+                "original_source": original_source,
                 "article_publish_date": date.isoformat(),
                 "article_link": link,
                 "country": pycountry.countries.get(alpha_2=country.upper()).name,
-                "translated": False
+                "translated": False,
+                "keywords": ",".join(keywords.split("+"))
             }
 
             new_records.append(record)

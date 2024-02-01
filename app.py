@@ -104,7 +104,6 @@ def scrape_country(country, content_type, keywords):
                 "language": "zh",
                 "source": "Ministry of Commerce of the People's Republic of China",
                 "article_publish_date": date.isoformat(),
-                "status": "unverified",
                 "article_link": link,
                 "country": pycountry.countries.get(alpha_2=country.upper()).name,
                 "translated": False

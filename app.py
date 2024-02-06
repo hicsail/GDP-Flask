@@ -5,6 +5,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 import pycountry
+import pytz
 import requests
 import re
 import os
@@ -103,16 +104,22 @@ def scrape_country(country, content_type, keywords):
                 continue
 
             result_set.add(title)
+
+            beijing_tz = pytz.timezone("Asia/Shanghai")
+            localized_beijing_time = beijing_tz.localize(date)
+            est_tz = pytz.timezone("US/Eastern")
+            est_time = localized_beijing_time.astimezone(est_tz)
+
             record = {
-                "title": title,
-                "content": content.strip(),
-                "language": "zh",
+                "originalTitle": title,
+                "originalContent": content.strip(),
+                "originalLanguage": "zh",
                 "source": "Ministry of Commerce of the People's Republic of China",
-                "original_source": original_source,
-                "article_publish_date": date.isoformat(),
-                "article_link": link,
+                "originalOutlet": original_source,
+                "articlePublishDateEst": est_time.strftime("%Y-%m-%d %H:%M"),
+                "articleUrl": link,
                 "country": pycountry.countries.get(alpha_2=country.upper()).name,
-                "translated": False,
+                "isEnglish": False,
                 "keywords": ",".join(keywords.split("+"))
             }
 

@@ -3,4 +3,5 @@ beautifulsoup4
 flask
 pycountry
 python-dotenv
+pytz
 requests

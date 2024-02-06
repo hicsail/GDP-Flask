@@ -148,7 +148,7 @@ def scrape():
 
             for article in articles:
                 params = {
-                    "where": f"(title,eq,{article['originalTitle']})"
+                    "where": f"(originalTitle,eq,{article['originalTitle']})"
                 }
                 
                 # check if article already exists in the database

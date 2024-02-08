@@ -1,0 +1,5 @@
+APScheduler
+deepl
+flask
+python-dotenv
+requests

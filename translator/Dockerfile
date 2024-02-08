@@ -1,0 +1,21 @@
+FROM python:3.11-slim as build
+
+WORKDIR /app
+
+COPY . .
+
+ARG NOCO_DB_URL
+ARG NOCO_XC_TOKEN
+ARG DEEPL_API_KEY
+ARG GOOGLE_API_KEY
+
+ENV NOCO_DB_URL=${NOCO_DB_URL}
+ENV NOCO_XC_TOKEN=${NOCO_XC_TOKEN}
+ENV DEEPL_API_KEY=${DEEPL_API_KEY}
+ENV GOOGLE_API_KEY=${GOOGLE_API_KEY}
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+EXPOSE 5002
+
+CMD ["python", "./app.py"]

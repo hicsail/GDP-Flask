@@ -15,3 +15,10 @@ services:
       - 5002:80
     environment:
       - FLASK_APP=app.py
+  classifier:
+    image: hicsail/gdp-flask-classifier:staging
+    restart: always
+    ports:
+      - 5003:80
+    environment:
+      - FLASK_APP=app.py

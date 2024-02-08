@@ -92,3 +92,44 @@ jobs:
           method: POST
           url: ${{ secrets.PORTAINER_WEBHOOK_STAGING }}
           preventFailureOnResponse: true
+  classifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r translator/requirements.txt
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & Push Docker Staging Build
+        uses: docker/build-push-action@v5
+        if: github.ref == 'refs/heads/main'
+        with:
+          context: ./classifier
+          push: true
+          tags: hicsail/gdp-flask-classifier:staging
+          build-args: |
+            NOCO_DB_URL=${{ secrets.NOCO_DB_URL }}
+            NOCO_XC_TOKEN=${{ secrets.NOCO_XC_TOKEN }}
+            DEEPL_API_KEY=${{ secrets.DEEPL_API_KEY }}
+            GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+
+      - name: Push to Staging
+        uses: fjogeleit/http-request-action@v1
+        if: github.ref == 'refs/heads/main'
+        with:
+          method: POST
+          url: ${{ secrets.PORTAINER_WEBHOOK_STAGING }}
+          preventFailureOnResponse: true

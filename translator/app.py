@@ -39,8 +39,8 @@ def translate():
             if key in target_field.keys():
                 language = translator_instance.detect_lang_google(record.get(key))
                 if language != "en" and language != "und":
-                    record[target_field[key]] = translator_instance.translate_text_deepl(record.get(key)).text
-                    # record[target_field[key]] = translator_instance.translate_text_google(record.get(key))
+                    # record[target_field[key]] = translator_instance.translate_text_deepl(record.get(key)).text
+                    record[target_field[key]] = translator_instance.translate_text_google(record.get(key))
 
         record["isEnglish"] = True
         requests.patch(url, headers=headers, json=record)

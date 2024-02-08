@@ -131,10 +131,9 @@ def scrape_country(country, content_type, keywords):
 
 def scrape():
     print("[MOF Scraper] Sraping started at " + datetime.now().isoformat() + "\n")
-    ignore = ["CN", "HK", "MO", "TW"]
+    ignore = ["CN", "HK", "MO", "TW"]   # ignore Mainland China, Hong Kong, Macau, and Taiwan
     for country in pycountry.countries:
-        # if country.alpha_2 not in ignore:
-        if country.alpha_2 in ["AO"]:   # for testing
+        if country.alpha_2 not in ignore:
             print("[MOF Scraper] =====================================")
             timestart = datetime.now()
             articles = []

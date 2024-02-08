@@ -123,8 +123,7 @@ jobs:
           build-args: |
             NOCO_DB_URL=${{ secrets.NOCO_DB_URL }}
             NOCO_XC_TOKEN=${{ secrets.NOCO_XC_TOKEN }}
-            DEEPL_API_KEY=${{ secrets.DEEPL_API_KEY }}
-            GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+            LLM_URL=${{ secrets.LLM_URL }}
 
       - name: Push to Staging
         uses: fjogeleit/http-request-action@v1

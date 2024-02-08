@@ -1,10 +1,17 @@
 version: "3"
 
 services:
-  server:
+  scraper:
     image: hicsail/gdp-flask:staging
     restart: always
     ports:
       - 5001:80
+    environment:
+      - FLASK_APP=app.py
+  translator:
+    image: hicsail/gdp-flask-translator:staging
+    restart: always
+    ports:
+      - 5002:80
     environment:
       - FLASK_APP=app.py

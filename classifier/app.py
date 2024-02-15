@@ -1,6 +1,7 @@
 from flask import Flask
 from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
+import datetime
 
 import os
 import requests
@@ -67,5 +68,5 @@ if __name__ == '__main__':
     load_dotenv()
     scheduler.add_job(classify, "cron", hour="*", minute="*/5")
     scheduler.start()
+    print("Classifier schedule started")
     app.run(port=5003)
-    print("Classifier started")

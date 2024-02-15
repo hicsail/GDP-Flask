@@ -10,7 +10,7 @@ services:
     env_file:
       - ../stack.env
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://gdp-flask-scraper:5001/health"]
+      test: ["CMD", "curl", "-f", "http://gdp-flask-scraper:80/health"]
   translator:
     container_name: gdp-flask-translator
     image: hicsail/gdp-flask-translator:staging
@@ -20,7 +20,7 @@ services:
     env_file:
       - ../stack.env
     healthcheck:
-        test: ["CMD", "curl", "-f", "http://gdp-flask-translator:5002/health"]
+        test: ["CMD", "curl", "-f", "http://gdp-flask-translator:80/health"]
   classifier:
     container_name: gdp-flask-classifier
     image: hicsail/gdp-flask-classifier:staging
@@ -30,4 +30,4 @@ services:
     env_file:
       - ../stack.env
     healthcheck:
-        test: ["CMD", "curl", "-f", "http://gdp-flask-classifier:5003/health"]
+        test: ["CMD", "curl", "-f", "http://gdp-flask-classifier:80/health"]

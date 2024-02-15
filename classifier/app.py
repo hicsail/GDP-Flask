@@ -23,7 +23,7 @@ def classify():
             "where": "(status,eq,unverified)~and(isEnglish,eq,false)",
             "limit": 5,
         }
-        
+
         llm_url = os.getenv("LLM_URL")
         form_data = {
             "variables": "headline,body",
@@ -63,6 +63,6 @@ def classify():
 
 if __name__ == '__main__':
     load_dotenv()
-    scheduler.add_job(classify, "cron", hour="*", minute=5)
+    scheduler.add_job(classify, "cron", hour="*", minute="*/5")
     scheduler.start()
     app.run(port=5003)

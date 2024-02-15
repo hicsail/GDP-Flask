@@ -26,7 +26,7 @@ def translate():
     if res.json().get("pageInfo").get("totalRows") == 0:
         print("[MOF Translator] No records to translate\n")
         return
-    
+
     translator_instance = translator.Translator()
     target_field = {
         "originalTitle": "translatedTitle",
@@ -48,6 +48,6 @@ def translate():
 
 if __name__ == "__main__":
     load_dotenv()
-    scheduler.add_job(translate, "cron", hour="*", minute=0)
+    scheduler.add_job(translate, "cron", hour="*", minute="*/5")
     scheduler.start()
     app.run(port=5002)

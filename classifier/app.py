@@ -31,12 +31,13 @@ def classify():
         }
 
         articles = requests.get(db_url, headers=headers, params=params)
-        if res.json().get("pageInfo").get("totalRows") == 0:
+        articles = articles.json()
+        if articles.get("pageInfo").get("totalRows") == 0:
             print("[MOF Classifier] No articles to classify")
             scheduler.resume()
             break
 
-        for article in articles.json().get("list"):
+        for article in articles.get("list"):
             attempts = 3
             while attempts > 0:
                 try:
@@ -62,6 +63,6 @@ def classify():
 
 if __name__ == '__main__':
     load_dotenv()
-    scheduler.add_job(classify, "cron", hour="*", minute=30)
+    scheduler.add_job(classify, "cron", hour="*", minute=5)
     scheduler.start()
     app.run(port=5003)

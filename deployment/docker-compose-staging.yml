@@ -9,8 +9,6 @@ services:
       - 5001:80
     env_file:
       - ../stack.env
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://scraper:80/health"]
   translator:
     container_name: gdp-flask-translator
     image: hicsail/gdp-flask-translator:staging
@@ -19,8 +17,6 @@ services:
       - 5002:80
     env_file:
       - ../stack.env
-    healthcheck:
-        test: ["CMD", "curl", "-f", "http://translator:80/health"]
   classifier:
     container_name: gdp-flask-classifier
     image: hicsail/gdp-flask-classifier:staging
@@ -29,5 +25,3 @@ services:
       - 5003:80
     env_file:
       - ../stack.env
-    healthcheck:
-        test: ["CMD", "curl", "-f", "http://classifier:80/health"]

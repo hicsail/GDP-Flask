@@ -50,4 +50,5 @@ if __name__ == "__main__":
     load_dotenv()
     scheduler.add_job(translate, "cron", hour="*", minute="*/5")
     scheduler.start()
+    print("[MOF Translator] Start translating")
     app.run(port=5002)

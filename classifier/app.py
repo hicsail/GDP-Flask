@@ -14,6 +14,7 @@ def health_check():
     return 'healthy'
 
 def classify():
+    print("[MOF Classifier] Classifying started at " + datetime.now().isoformat() + "\n")
     scheduler.pause()
 
     while True:
@@ -60,9 +61,11 @@ def classify():
                     article["status"] = "undetermined"
 
             requests.patch(db_url, headers=headers, json=article)
+            print("Article classified: " + article["originalTitle"])
 
 if __name__ == '__main__':
     load_dotenv()
     scheduler.add_job(classify, "cron", hour="*", minute="*/5")
     scheduler.start()
     app.run(port=5003)
+    print("Classifier started")

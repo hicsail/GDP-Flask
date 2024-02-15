@@ -2,23 +2,32 @@ version: "3"
 
 services:
   scraper:
+    container_name: gdp-flask-scraper
     image: hicsail/gdp-flask:staging
     restart: always
     ports:
       - 5001:80
     env_file:
       - ../stack.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://gdp-flask-scraper:5001/health"]
   translator:
+    container_name: gdp-flask-translator
     image: hicsail/gdp-flask-translator:staging
     restart: always
     ports:
       - 5002:80
     env_file:
       - ../stack.env
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://gdp-flask-translator:5002/health"]
   classifier:
+    container_name: gdp-flask-classifier
     image: hicsail/gdp-flask-classifier:staging
     restart: always
     ports:
       - 5003:80
     env_file:
       - ../stack.env
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://gdp-flask-classifier:5003/health"]

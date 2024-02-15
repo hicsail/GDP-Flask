@@ -1,7 +1,7 @@
 from flask import Flask
 from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
-import datetime
+import datetime from datetime
 
 import os
 import requests

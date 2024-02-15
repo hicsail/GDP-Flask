@@ -6,19 +6,19 @@ services:
     restart: always
     ports:
       - 5001:80
-    environment:
-      - FLASK_APP=app.py
+    env_file:
+      - ../stack.env
   translator:
     image: hicsail/gdp-flask-translator:staging
     restart: always
     ports:
       - 5002:80
-    environment:
-      - FLASK_APP=app.py
+    env_file:
+      - ../stack.env
   classifier:
     image: hicsail/gdp-flask-classifier:staging
     restart: always
     ports:
       - 5003:80
-    environment:
-      - FLASK_APP=app.py
+    env_file:
+      - ../stack.env

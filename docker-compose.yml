@@ -1,0 +1,31 @@
+version: "3"
+
+services:
+  scraper:
+    container_name: gdp-flask-scraper
+    build:
+      context: ./scraper
+    restart: always
+    ports:
+      - 5001:80
+    env_file:
+      - .env
+  translator:
+    container_name: gdp-flask-translator
+    build:
+      context: ./translator
+    restart: always
+    ports:
+      - 5002:80
+    env_file:
+      - .env
+  classifier:
+    container_name: gdp-flask-classifier
+    build:
+      context: ./classifier
+    image: hicsail/gdp-flask-classifier:staging
+    restart: always
+    ports:
+      - 5003:80
+    env_file:
+      - .env

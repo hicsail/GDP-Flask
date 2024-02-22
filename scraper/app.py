@@ -64,15 +64,15 @@ def scrape_country(country, content_type, keywords):
             scripts = article.find_all("script")
             for script in scripts:
                 if "contype" in script.text:
-                    match = re.search(r'var contype = "(.*)";', script.text)
+                    match = re.search(r'var contype = [\'"](.*)[\'"];', script.text)
                     if match:
                         contype = match.group(1)
 
-                    match = re.search(r'var tm = "(.*)";', script.text)
+                    match = re.search(r'var tm = [\'"](.*)[\'"];', script.text)
                     if match:
                         tm = match.group(1)
 
-                    match = re.search(r'var source = "(.*)";', script.text)
+                    match = re.search(r'var source = [\'"](.*)[\'"];', script.text)
                     if match:
                         original_source = match.group(1)
 
@@ -168,6 +168,5 @@ if __name__ == "__main__":
     print("[MOF Scraper] Start inital scraping")
     scrape()
     # scheduler.add_job(scrape, "cron", month="1,7", day="1", hour="0", minute="0")
-    scheduler.add_job(scrape, "interval", minutes=15)   # for testing
     scheduler.start()
     app.run(port=5001)

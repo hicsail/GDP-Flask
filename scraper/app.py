@@ -164,7 +164,7 @@ def scrape():
             }
             date_req = requests.get(url, headers=headers, params=date_params)
             if date_req.json().get("pageInfo").get("totalRows") > 0:
-                date_est = date_req.json().get("data")[0].get("articlePublishDateEst")
+                date_est = date_req.json().get("list")[0].get("articlePublishDateEst")
                 date_obj = datetime.strptime(date_est, "%Y-%m-%d %H:%M")
                 est_time = est_tz.localize(date_obj)
                 beijing_time = est_time.astimezone(beijing_tz)

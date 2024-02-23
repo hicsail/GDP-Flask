@@ -14,18 +14,22 @@ app = Flask(__name__)
 scheduler = BackgroundScheduler()
 terms = []
 
+beijing_tz = pytz.timezone("Asia/Shanghai")
+est_tz = pytz.timezone("US/Eastern")
+
 with open("terms.list", "r") as file:
     terms = file.readlines()
 
-def get_target_url(country, type, keyword, page = 1):
+def get_target_url(country, keyword, startTime = "", page = 1):
     domain = "http://search.mofcom.gov.cn"
     path = "allSearch"
     countryVar = f"?siteId={country}"
-    searchTypeVar = f"&keyWordType={type}"
+    searchTypeVar = f"&keyWordType=all"
     keyWordVar = f"&acSuggest={keyword}"
+    startTime = "" if not startTime else f"&startTime={startTime}"
     pageVar = f"&page={page}"
 
-    url = "/".join([domain, path, countryVar + searchTypeVar + keyWordVar]) + pageVar
+    url = "/".join([domain, path, countryVar + searchTypeVar + keyWordVar]) + startTime + pageVar
 
     return url
 
@@ -34,13 +38,13 @@ def health_check():
     return "healthy"
 
 result_set = set()
-def scrape_country(country, content_type, keywords):
+def scrape_country(country, latest_date, keywords):
     new_records = []
 
     # loop through all pages
     pageNum = 1
     while True:
-        URL = get_target_url(country, content_type, keywords, pageNum)
+        URL = get_target_url(country, keywords, latest_date, pageNum)
         page = requests.get(URL)
         soup = BeautifulSoup(page.content, "html.parser")
         div = soup.find("div", class_="wms-con").find("div", class_="s-info-box")
@@ -57,7 +61,21 @@ def scrape_country(country, content_type, keywords):
 
             # access article page
             link = i.find("a").get("href")
-            article_page = requests.get(link)
+
+            req_cnt = 0
+            timeout = True
+            while req_cnt < 3:
+                try:
+                    article_page = requests.get(link, timeout=15)   # request timeout after 15 seconds
+                    timeout = False
+                    break
+                except:
+                    req_cnt += 1
+                    print(f"[MOF Scraper] Request timeout for {link}, retrying...")
+
+            if timeout:
+                print(f"[MOF Scraper] Request failed for {link}, skipping...")
+                continue
             article = BeautifulSoup(article_page.content, "html.parser")
 
             # extract content type and publish date
@@ -105,9 +123,8 @@ def scrape_country(country, content_type, keywords):
 
             result_set.add(title)
 
-            beijing_tz = pytz.timezone("Asia/Shanghai")
+            
             localized_beijing_time = beijing_tz.localize(date)
-            est_tz = pytz.timezone("US/Eastern")
             est_time = localized_beijing_time.astimezone(est_tz)
 
             record = {
@@ -134,16 +151,32 @@ def scrape():
     ignore = ["CN", "HK", "MO", "TW"]   # ignore Mainland China, Hong Kong, Macau, and Taiwan
     for country in pycountry.countries:
         if country.alpha_2 not in ignore:
+            url = os.getenv("NOCO_DB_URL")
+            headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
+
+            # get latest date of article in the database
+            date = ""
+            date_params = {
+                "fields": "articlePublishDateEst",
+                "sort": "-articlePublishDateEst",
+                "where": f"(country,eq,{country.name})",
+                "limit": 1
+            }
+            date_req = requests.get(url, headers=headers, params=date_params)
+            if date_req.json().get("pageInfo").get("totalRows") > 0:
+                date_est = date_req.json().get("data")[0].get("articlePublishDateEst")
+                date_obj = datetime.strptime(date_est, "%Y-%m-%d %H:%M")
+                est_time = est_tz.localize(date_obj)
+                beijing_time = est_time.astimezone(beijing_tz)
+                date = beijing_time.strftime("%Y-%m-%d")
+
             print("[MOF Scraper] =====================================")
+            print(f"[MOF Scraper] Scraping {country.name} from {date} CST...")
             timestart = datetime.now()
             articles = []
             for term in terms:
                 country_code = country.alpha_2.lower()
-                articles.extend(scrape_country(country_code, "title", "+".join(term.split(" "))))
-                articles.extend(scrape_country(country_code, "content", "+".join(term.split(" "))))
-
-            url = os.getenv("NOCO_DB_URL")
-            headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
+                articles.extend(scrape_country(country_code, date, "+".join(term.split(" "))))
 
             for article in articles:
                 params = {

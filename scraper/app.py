@@ -81,7 +81,7 @@ def scrape_country(country, latest_date, keywords):
             article = BeautifulSoup(article_page.content, "html.parser")
 
             # article does not exist
-            if article.find("div", class_="wms-con") is None:
+            if article.find(id="zoom") is None or article.find(id="artitle") is None:
                 print(f"[MOF Scraper] Article does not exist for {link}")
                 if "政策" in i.find("em", class_="tag").text:
                     continue

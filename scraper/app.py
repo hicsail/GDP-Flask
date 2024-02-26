@@ -58,12 +58,14 @@ def scrape_country(country, latest_date, keywords):
             contype = ""
             tm = ""
             original_source = ""
+            est_time = None
 
             # access article page
             link = i.find("a").get("href")
 
             req_cnt = 0
             timeout = True
+            article_page = None
             while req_cnt < 3:
                 try:
                     article_page = requests.get(link, timeout=15)   # request timeout after 15 seconds
@@ -78,54 +80,78 @@ def scrape_country(country, latest_date, keywords):
                 continue
             article = BeautifulSoup(article_page.content, "html.parser")
 
-            # extract content type and publish date
-            scripts = article.find_all("script")
-            for script in scripts:
-                if "contype" in script.text:
-                    match = re.search(r'var contype = [\'"](.*)[\'"];', script.text)
-                    if match:
-                        contype = match.group(1)
+            # article does not exist
+            if article.find("div", class_="wms-con") is None:
+                print(f"[MOF Scraper] Article does not exist for {link}")
+                if "政策" in i.find("em", class_="tag").text:
+                    continue
 
-                    match = re.search(r'var tm = [\'"](.*)[\'"];', script.text)
-                    if match:
-                        tm = match.group(1)
+                title = "[DELETED] " + i.find("a").text
+                content = i.find("div", class_="bd").text
+                sub_content = i.find("div", class_="ft-col").find("p").text
 
-                    match = re.search(r'var source = [\'"](.*)[\'"];', script.text)
-                    if match:
-                        original_source = match.group(1)
+                match = re.search(r"来源：(.+?) (\d{4}-\d{2}-\d{2})", sub_content)
+                if match:
+                    original_source = match.group(1)
+                    date = datetime.strptime(match.group(2), "%Y-%m-%d")
+                    localized_beijing_time = beijing_tz.localize(date)
+                    est_time = localized_beijing_time.astimezone(est_tz)
+                else:
+                    print(f"[MOF Scraper] Failed to parse date for {link}, set to default date")
+                    est_time = datetime.min
 
-                    break
+            else:
+                # extract content type and publish date
+                scripts = article.find_all("script")
+                for script in scripts:
+                    if "contype" in script.text:
+                        match = re.search(r'var contype = [\'"](.*)[\'"];', script.text)
+                        if match:
+                            contype = match.group(1)
 
-            # ignore policy articles
-            if contype == "政策":
-                continue
+                        match = re.search(r'var tm = [\'"](.*)[\'"];', script.text)
+                        if match:
+                            tm = match.group(1)
 
-            date = datetime.strptime(tm, "%Y-%m-%d %H:%M:%S")
-            title = article.find(id="artitle").text
-            for script in article.find(id="zoom").find_all("script"):
-                script.decompose()
+                        match = re.search(r'var source = [\'"](.*)[\'"];', script.text)
+                        if match:
+                            original_source = match.group(1)
 
-            content = article.find(id="zoom").text
+                        break
 
-            # ignore duplicate articles
-            if title in result_set:
-                continue
+                # ignore policy articles
+                if contype == "政策":
+                    continue
 
-            # ignore articles without keywords
-            irrelevant = False
-            for keyword in keywords.split("+"):
-                if keyword.strip() not in content:
-                    irrelevant = True
-                    break
+                title = article.find(id="artitle").text
+                for script in article.find(id="zoom").find_all("script"):
+                    script.decompose()
 
-            if irrelevant:
-                continue
+                content = article.find(id="zoom").text
 
-            result_set.add(title)
+                # ignore duplicate articles
+                if title in result_set:
+                    continue
 
-            
-            localized_beijing_time = beijing_tz.localize(date)
-            est_time = localized_beijing_time.astimezone(est_tz)
+                # ignore articles without keywords
+                irrelevant = False
+                for keyword in keywords.split("+"):
+                    if keyword.strip() not in content:
+                        irrelevant = True
+                        break
+
+                if irrelevant:
+                    continue
+
+                result_set.add(title)
+
+                try:
+                    date = datetime.strptime(tm, "%Y-%m-%d %H:%M:%S")
+                    localized_beijing_time = beijing_tz.localize(date)
+                    est_time = localized_beijing_time.astimezone(est_tz)
+                except:
+                    print(f"[MOF Scraper] Failed to parse date for {link}, set to default date")
+                    est_time = datetime.min
 
             record = {
                 "originalTitle": title,

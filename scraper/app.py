@@ -45,7 +45,22 @@ def scrape_country(country, latest_date, keywords):
     pageNum = 1
     while True:
         URL = get_target_url(country, keywords, latest_date, pageNum)
-        page = requests.get(URL)
+        req_cnt = 0
+        timeout = True
+        page = None
+        while req_cnt < 5:
+            try:
+                page = requests.get(URL, timeout=15)   # request timeout after 15 seconds
+                timeout = False
+                break
+            except:
+                req_cnt += 1
+                print(f"[MOF Scraper] Request timeout for {URL}, retrying...")
+        
+        if timeout:
+            print(f"[MOF Scraper] Request failed for {URL}, skipping...")
+            break
+
         soup = BeautifulSoup(page.content, "html.parser")
         div = soup.find("div", class_="wms-con").find("div", class_="s-info-box")
 

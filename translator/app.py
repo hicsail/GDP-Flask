@@ -48,7 +48,7 @@ def translate():
                             raise Exception("Translation failed")
 
             record["isEnglish"] = True
-            # requests.patch(url, headers=headers, json=record)
+            requests.patch(url, headers=headers, json=record)
             print(f"[MOF Translator] Translated record: {record.get('originalTitle')}\n to {record.get('translatedTitle')}\n")
     except Exception as e:
         print(f"[MOF Translator] Error: {e}")

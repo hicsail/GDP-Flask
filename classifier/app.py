@@ -22,7 +22,7 @@ def classify():
         db_url = os.getenv("NOCO_DB_URL")
         headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
         params = {
-            "where": "(status,eq,unverified)~and(isEnglish,eq,false)",
+            "where": "(status,eq,unverified)~and(isEnglish,eq,true)",
             "limit": 5,
         }
 

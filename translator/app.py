@@ -16,7 +16,6 @@ def health_check():
 
 def translate():
     try:
-
         print("[MOF Translator] Translating started at " + datetime.now().isoformat() + "\n")
         url = os.getenv("NOCO_DB_URL")
         headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}

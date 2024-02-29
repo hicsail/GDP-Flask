@@ -43,7 +43,6 @@ def classify():
             attempts = 3
             while attempts > 0:
                 try:
-                    print("Article to classify: " + article["originalTitle"])
                     form_data["llm_request"] = json.dumps({
                         "headline": article["originalTitle"],
                         "body": article["originalContent"]

@@ -14,8 +14,9 @@ class Translator:
         return self.deepl_translator.translate_text(text, target_lang=target_lang)
     
     def translate_text_google(self, text, target_lang="en"):
-        param = { "q": text, "target": target_lang, "key": self.google_key }
-        res = requests.post(self.google_url, params=param)
+        param = { "target": target_lang, "key": self.google_key }
+        data = { "q": text }
+        res = requests.post(self.google_url, params=param, data=data)
 
         if res.status_code != 200:
             return None
@@ -23,8 +24,9 @@ class Translator:
         return res.json()["data"]["translations"][0]["translatedText"]
     
     def detect_lang_google(self, text):
-        param = { "q": text, "key": self.google_key }
-        res = requests.post(self.google_url + "/detect", params=param)
+        param = { "key": self.google_key }
+        data = { "q": text}
+        res = requests.post(self.google_url + "/detect", params=param, data=data)
 
         if res.status_code != 200:
             return None

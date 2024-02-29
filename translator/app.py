@@ -38,13 +38,17 @@ def translate():
         for record in res.json().get("list"):
             for key in record.keys():
                 if key in target_field.keys():
-                    language = translator_instance.detect_lang_google(record.get(key))
+                    sample_text = record.get(key).strip()[:100]
+                    language = translator_instance.detect_lang_google(sample_text)
                     if language != "en" and language != "und":
                         # record[target_field[key]] = translator_instance.translate_text_deepl(record.get(key)).text
                         record[target_field[key]] = translator_instance.translate_text_google(record.get(key))
 
+                        if not record.get(key) and record[target_field[key]] == None:
+                            raise Exception("Translation failed")
+
             record["isEnglish"] = True
-            requests.patch(url, headers=headers, json=record)
+            # requests.patch(url, headers=headers, json=record)
             print(f"[MOF Translator] Translated record: {record.get('originalTitle')}\n to {record.get('translatedTitle')}\n")
     except Exception as e:
         print(f"[MOF Translator] Error: {e}")

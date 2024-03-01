@@ -191,7 +191,8 @@ def scrape():
     print("[MOF Scraper] Sraping started at " + datetime.now().isoformat() + "\n")
     ignore = ["CN", "HK", "MO", "TW"]   # ignore Mainland China, Hong Kong, Macau, and Taiwan
     for country in pycountry.countries:
-        if country.alpha_2 not in ignore:
+        # if country.alpha_2 not in ignore:
+        if country.alpha_2 == "BN":
             url = os.getenv("NOCO_DB_URL")
             headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
 
@@ -225,8 +226,14 @@ def scrape():
                 
                 # check if article already exists in the database
                 req = requests.get(url, headers=headers, params=params)
-                if req.json().get("pageInfo").get("totalRows") == 0:
-                    requests.post(url, headers=headers, json=article)
+                try:
+                    if req.json().get("pageInfo").get("totalRows") == 0:
+                        print(f"[MOF Scraper] Found new article: {article['originalTitle']}")
+                        requests.post(url, headers=headers, json=article)
+                except:
+                    print(f"[MOF Scraper] Failed to post {article['originalTitle']} to database")
+                    print("[MOF Scraper] Request body below:")
+                    print(req.json())
 
             timeend = datetime.now()
 

@@ -67,7 +67,6 @@ def classify():
 
 if __name__ == '__main__':
     load_dotenv()
-    classify()
     scheduler.add_job(classify, "cron", hour="*", minute="*/5", max_instances=1)
     scheduler.start()
     print("Classifier schedule started")

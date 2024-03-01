@@ -23,13 +23,13 @@ def classify():
         headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
         params = {
             "where": "(status,eq,unverified)~and(isEnglish,eq,true)",
-            "limit": 5,
+            "limit": 1,
         }
 
         llm_url = os.getenv("LLM_URL")
         form_data = {
             "variables": "headline,body",
-            "string_prompt": "<<SYS>> \n You are an assistant tasked with classifying whether the given headline and body is related to China Development Bank or China Import Export Bank or Debt or Loan From China. \n <</SYS>> \n\n [INST] Generate a SHORT response if the given headline and article body is related to China. The output should be either Yes or No. \n\n Headline: \n\n {headline} \n\n Body: {body}\n\n [/INST]",
+            "string_prompt": '<<SYS>>\n You are an assistant tasked with classifying whether the given headline and body is related to financial activities involving Chinese financial institutions. Specifically, the content should be marked as relevant if it involves:\n 1. A Chinese lender, including the Import Export Bank or Development Bank.\n 2. A loan being signed, including agreements, ceremonies, or mentioning of loan amounts.\n 3. Information related to loans or debts.\n 4. Interest from other Chinese banks in financial activities.\n Generate a short response indicating whether the content meets any of the above criteria. Respond with "Yes" for relevance or "No" if not.<</SYS>> \n\n [INST]Assess the given headline and article body based on the specified criteria. Provide a concise response indicating relevance.\n\n Headline: {headline} \n\n Body: {body} \n\n [/INST]',
         }
 
         articles = requests.get(db_url, headers=headers, params=params)
@@ -48,7 +48,7 @@ def classify():
                         "body": article["originalContent"]
                     })
 
-                    res = requests.post(llm_url, data=form_data)
+                    res = requests.post(llm_url, data=form_data, timeout=180)
 
                     if "yes" in res.json().get("Result").lower()[:5]:
                         article["status"] = "relevant"

@@ -114,9 +114,9 @@ def scrape_country(country, latest_date, keywords):
                 if "政策" in i.find("em", class_="tag").text:
                     continue
 
-                title = "[DELETED] " + i.find("a").text
-                content = i.find("div", class_="bd").text
-                sub_content = i.find("div", class_="ft-col").find("p").text
+                title = "[DELETED] " + i.find("a").text.strip()
+                content = i.find("div", class_="bd").text.strip()
+                sub_content = i.find("div", class_="ft-col").find("p").text.strip()
 
                 match = re.search(r"来源：(.+?) (\d{4}-\d{2}-\d{2})", sub_content)
                 if match:
@@ -151,11 +151,11 @@ def scrape_country(country, latest_date, keywords):
                 if contype == "政策":
                     continue
 
-                title = article.find(id="artitle").text
+                title = article.find(id="artitle").text.strip()
                 for script in article.find(id="zoom").find_all("script"):
                     script.decompose()
 
-                content = article.find(id="zoom").text
+                content = article.find(id="zoom").text.strip()
 
                 # ignore duplicate articles
                 if title in result_set:
@@ -183,7 +183,7 @@ def scrape_country(country, latest_date, keywords):
 
             record = {
                 "originalTitle": title,
-                "originalContent": content.strip(),
+                "originalContent": content,
                 "originalLanguage": "zh",
                 "source": "Ministry of Commerce of the People's Republic of China",
                 "originalOutlet": original_source,

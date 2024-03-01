@@ -16,14 +16,13 @@ def health_check():
 
 def classify():
     print("[MOF Classifier] Classifying started at " + datetime.now().isoformat() + "\n")
-    scheduler.pause()
 
     while True:
         db_url = os.getenv("NOCO_DB_URL")
         headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
         params = {
             "where": "(status,eq,unverified)~and(isEnglish,eq,true)",
-            "limit": 1,
+            "limit": 5,
         }
 
         llm_url = os.getenv("LLM_URL")
@@ -36,7 +35,6 @@ def classify():
         articles = articles.json()
         if articles.get("pageInfo").get("totalRows") == 0:
             print("[MOF Classifier] No articles to classify")
-            scheduler.resume()
             break
 
         for article in articles.get("list"):
@@ -48,16 +46,20 @@ def classify():
                         "body": article["originalContent"]
                     })
 
-                    res = requests.post(llm_url, data=form_data, timeout=180)
+                    res = requests.post(llm_url, data=form_data, timeout=120)
+                    print(res.json())
 
-                    if "yes" in res.json().get("Result").lower()[:5]:
+                    if "yes" in res.json().get("Result").lower()[:3]:
                         article["status"] = "relevant"
-                    else:
+                    elif "no" in res.json().get("Result").lower()[:2]:
                         article["status"] = "irrelevant"
+                    else:
+                        article["status"] = "undetermined"
 
                     break
                 except:
                     attempts -= 1
+                    print(f"[MOF Classifier] Request timeout. {attempts} attempt(s) left ...")
                     article["status"] = "undetermined"
 
             requests.patch(db_url, headers=headers, json=article)
@@ -65,7 +67,8 @@ def classify():
 
 if __name__ == '__main__':
     load_dotenv()
-    scheduler.add_job(classify, "cron", hour="*", minute="*/5")
+    classify()
+    scheduler.add_job(classify, "cron", hour="*", minute="*/5", max_instances=1)
     scheduler.start()
     print("Classifier schedule started")
     app.run(port=5003)

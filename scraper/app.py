@@ -78,6 +78,19 @@ def scrape_country(country, latest_date, keywords):
             # access article page
             link = i.find("a").get("href")
 
+            # check if article already exists in the database
+            url = os.getenv("NOCO_DB_URL")
+            headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
+            params = {
+                "where": f"(articleUrl,eq,{link})"
+            }
+
+            req = requests.get(url, headers=headers, params=params)
+            if len(req.json().get("list")) > 0:
+                print(f"[MOF Scraper] Article {link} already exists in the database, skipping...")
+                continue
+
+            # try to access article page
             req_cnt = 0
             timeout = True
             article_page = None
@@ -205,7 +218,7 @@ def scrape():
                 "limit": 1
             }
             date_req = requests.get(url, headers=headers, params=date_params)
-            if date_req.json().get("pageInfo").get("totalRows") > 0:
+            if len(date_req.json().get("list")) > 0:
                 date_est = date_req.json().get("list")[0].get("articlePublishDateEst")
                 date_obj = datetime.fromisoformat(date_est)
                 beijing_time = date_obj.astimezone(beijing_tz)
@@ -227,7 +240,9 @@ def scrape():
                 # check if article already exists in the database
                 req = requests.get(url, headers=headers, params=params)
                 try:
-                    if req.json().get("pageInfo").get("totalRows") == 0:
+                    print(f"[MOF Scraper] Request params below:")
+                    print(params)
+                    if len(req.json().get("list")) == 0:
                         print(f"[MOF Scraper] Found new article: {article['originalTitle']}")
                         requests.post(url, headers=headers, json=article)
                 except:
@@ -248,5 +263,5 @@ if __name__ == "__main__":
     print("[MOF Scraper] Start inital scraping")
     scrape()
     # scheduler.add_job(scrape, "cron", month="1,7", day="1", hour="0", minute="0")
-    scheduler.start()
+    # scheduler.start()
     app.run(port=5001)

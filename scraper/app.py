@@ -204,8 +204,7 @@ def scrape():
     print("[MOF Scraper] Sraping started at " + datetime.now().isoformat() + "\n")
     ignore = ["CN", "HK", "MO", "TW"]   # ignore Mainland China, Hong Kong, Macau, and Taiwan
     for country in pycountry.countries:
-        # if country.alpha_2 not in ignore:
-        if country.alpha_2 == "BN":
+        if country.alpha_2 not in ignore:
             url = os.getenv("NOCO_DB_URL")
             headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
 
@@ -262,6 +261,6 @@ if __name__ == "__main__":
     # initial scrape, this process will take longer
     print("[MOF Scraper] Start inital scraping")
     scrape()
-    # scheduler.add_job(scrape, "cron", month="1,7", day="1", hour="0", minute="0")
-    # scheduler.start()
+    scheduler.add_job(scrape, "cron", month="1,7", day="1", hour="0", minute="0")
+    scheduler.start()
     app.run(port=5001)

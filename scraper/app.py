@@ -4,6 +4,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from dotenv import load_dotenv
 
+import json
 import pycountry
 import pytz
 import requests
@@ -13,12 +14,16 @@ import os
 app = Flask(__name__)
 scheduler = BackgroundScheduler()
 terms = []
+regions = {}
 
 beijing_tz = pytz.timezone("Asia/Shanghai")
 est_tz = pytz.timezone("US/Eastern")
 
 with open("terms.list", "r") as file:
     terms = file.readlines()
+
+with open("region.json", "r") as file:
+    regions = json.load(file)
 
 def get_target_url(country, keyword, startTime = "", page = 1):
     domain = "http://search.mofcom.gov.cn"
@@ -190,6 +195,7 @@ def scrape_country(country, latest_date, keywords):
                 "articlePublishDateEst": est_time.strftime("%Y-%m-%d %H:%M"),
                 "articleUrl": link,
                 "country": pycountry.countries.get(alpha_2=country.upper()).name,
+                "region": regions[country.upper()],
                 "isEnglish": False,
                 "keywords": ",".join(keywords.split("+"))
             }

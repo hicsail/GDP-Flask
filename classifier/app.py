@@ -41,13 +41,14 @@ def classify():
             attempts = 3
             while attempts > 0:
                 try:
+                    originalEnglish = article["originalLanguage"] == "en"
+
                     form_data["llm_request"] = json.dumps({
-                        "headline": article["originalTitle"],
-                        "body": article["originalContent"]
+                        "headline": article["originalTitle"] if originalEnglish else article["translatedTitle"],
+                        "body": article["originalContent"] if originalEnglish else article["translatedContent"],
                     })
 
                     res = requests.post(llm_url, data=form_data, timeout=120)
-                    print(res.json())
 
                     if "yes" in res.json().get("Result").lower()[:3]:
                         article["status"] = "relevant"
@@ -63,7 +64,7 @@ def classify():
                     article["status"] = "undetermined"
 
             requests.patch(db_url, headers=headers, json=article)
-            print("Article classified: " + article["originalTitle"])
+            print(f"Article classified: {article["originalTitle"]} ({article["translatedTitle"]})")
 
 if __name__ == '__main__':
     load_dotenv()

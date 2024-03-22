@@ -64,7 +64,7 @@ def classify():
                     article["status"] = "undetermined"
 
             requests.patch(db_url, headers=headers, json=article)
-            print(f"Article classified: {article["originalTitle"]} ({article["translatedTitle"]})")
+            print("Article classified: " + article["originalTitle"])
 
 if __name__ == '__main__':
     load_dotenv()

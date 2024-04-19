@@ -38,7 +38,7 @@ def classify():
             break
 
         for article in articles.get("list"):
-            attempts = 3
+            attempts = 2
             while attempts > 0:
                 try:
                     originalEnglish = article["originalLanguage"] == "en"
@@ -48,7 +48,7 @@ def classify():
                         "body": article["originalContent"] if originalEnglish else article["translatedContent"],
                     })
 
-                    res = requests.post(llm_url, data=form_data, timeout=120)
+                    res = requests.post(llm_url, data=form_data, timeout=60)
 
                     if "yes" in res.json().get("Result").lower()[:3]:
                         article["status"] = "relevant"

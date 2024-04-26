@@ -21,7 +21,7 @@ def classify():
         db_url = os.getenv("NOCO_DB_URL")
         headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
         params = {
-            "where": "(status,eq,unverified)~and(isEnglish,eq,true)~and(region,neq,Latin America and the Caribbean)",
+            "where": "(status,eq,unverified)~and(isEnglish,eq,true)",
             "limit": 5,
         }
 

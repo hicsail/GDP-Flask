@@ -38,6 +38,8 @@ def translate():
         for record in res.json().get("list"):
             for key in record.keys():
                 if key in target_field.keys():
+                    if not record.get(key):
+                        continue
                     sample_text = record.get(key).strip()[:100]
                     language = translator_instance.detect_lang_google(sample_text)
                     if language != "en" and language != "und":

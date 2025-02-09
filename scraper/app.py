@@ -215,7 +215,7 @@ def scrape():
             headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
 
             # get latest date of article in the database
-            date = ""
+            date = "2024-07-01"
             date_params = {
                 "fields": "articlePublishDateEst",
                 "sort": "-articlePublishDateEst",
@@ -259,6 +259,6 @@ if __name__ == "__main__":
     # initial scrape, this process will take longer
     print("[MOF Scraper] Start inital scraping")
     scrape()
-    scheduler.add_job(scrape, "cron", month="1,7", day="1", hour="0", minute="0")
-    scheduler.start()
+    # scheduler.add_job(scrape, "cron", month="1,7", day="1", hour="0", minute="0")
+    # scheduler.start()
     app.run(port=5001)

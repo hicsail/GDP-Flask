@@ -136,22 +136,32 @@ def scrape_country(country, latest_date, keywords):
 
             else:
                 # extract content type and publish date
-                scripts = article.find_all("script")
-                for script in scripts:
-                    if "contype" in script.text:
-                        match = re.search(r'var contype = [\'"](.*)[\'"];', script.text)
-                        if match:
-                            contype = match.group(1)
+                # scripts = article.find_all("script")
+                # for script in scripts:
+                #     if "contype" in script.text:
+                #         match = re.search(r'var contype = [\'"](.*)[\'"];', script.text)
+                #         if match:
+                #             contype = match.group(1)
 
-                        match = re.search(r'var tm = [\'"](.*)[\'"];', script.text)
-                        if match:
-                            tm = match.group(1)
+                #         match = re.search(r'var tm = [\'"](.*)[\'"];', script.text)
+                #         if match:
+                #             tm = match.group(1)
 
-                        match = re.search(r'var source = [\'"](.*)[\'"];', script.text)
-                        if match:
-                            original_source = match.group(1)
+                #         match = re.search(r'var source = [\'"](.*)[\'"];', script.text)
+                #         if match:
+                #             original_source = match.group(1)
 
-                        break
+                #         break
+
+                top_info = article.find("section", class_="article-tool")
+                
+                category_span = top_info.find_all('span', class_='m-ar-none')
+                contype = category_span[1].get_text(strip=True).replace("分类：", "")
+                
+                source_text = top_info.find('p').get_text(strip=True)
+                original_source = top_info.split("来源：")[1].split("类型：")[0].strip()
+
+                tm = top_info.find_all('p')[1].get_text(strip=True)
 
                 # ignore policy articles
                 if contype == "政策":
@@ -180,7 +190,7 @@ def scrape_country(country, latest_date, keywords):
                 result_set.add(title)
 
                 try:
-                    date = datetime.strptime(tm, "%Y-%m-%d %H:%M:%S")
+                    date = datetime.strptime(tm, "%Y-%m-%d %H:%M")
                     localized_beijing_time = beijing_tz.localize(date)
                     est_time = localized_beijing_time.astimezone(est_tz)
                 except:

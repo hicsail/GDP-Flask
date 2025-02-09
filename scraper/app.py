@@ -216,18 +216,18 @@ def scrape():
 
             # get latest date of article in the database
             date = "2024-07-01"
-            date_params = {
-                "fields": "articlePublishDateEst",
-                "sort": "-articlePublishDateEst",
-                "where": f"(country,eq,{country.name})",
-                "limit": 1
-            }
-            date_req = requests.get(url, headers=headers, params=date_params)
-            if len(date_req.json().get("list")) > 0:
-                date_est = date_req.json().get("list")[0].get("articlePublishDateEst")
-                date_obj = datetime.fromisoformat(date_est)
-                beijing_time = date_obj.astimezone(beijing_tz)
-                date = beijing_time.strftime("%Y-%m-%d")
+            # date_params = {
+            #     "fields": "articlePublishDateEst",
+            #     "sort": "-articlePublishDateEst",
+            #     "where": f"(country,eq,{country.name})",
+            #     "limit": 1
+            # }
+            # date_req = requests.get(url, headers=headers, params=date_params)
+            # if len(date_req.json().get("list")) > 0:
+            #     date_est = date_req.json().get("list")[0].get("articlePublishDateEst")
+            #     date_obj = datetime.fromisoformat(date_est)
+            #     beijing_time = date_obj.astimezone(beijing_tz)
+            #     date = beijing_time.strftime("%Y-%m-%d")
 
             print("[MOF Scraper] =====================================")
             print(f"[MOF Scraper] Scraping {country.name} from {date} CST...")

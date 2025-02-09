@@ -30,11 +30,12 @@ def get_target_url(country, keyword, startTime = "", page = 1):
     path = "allSearch"
     countryVar = f"?siteId={country}"
     searchTypeVar = f"&keyWordType=all"
-    keyWordVar = f"&acSuggest={keyword}"
-    startTime = "" if not startTime else f"&startTime={startTime}"
+    keyWordVar = f"&includeAll={keyword}"
+    miscVar = "&random=&notInclude=&size=30&searchScope=is_all&hightSearchType=all&radio=publish_time_str"
+    startTime = f"&startTime={startTime}&endTime=2025-02-08"
     pageVar = f"&page={page}"
 
-    url = "/".join([domain, path, countryVar + searchTypeVar + keyWordVar]) + startTime + pageVar
+    url = "/".join([domain, path, countryVar + searchTypeVar + keyWordVar + miscVar + startTime + pageVar]) 
 
     return url
 

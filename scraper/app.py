@@ -255,8 +255,13 @@ def scrape():
                 
                 # check if article already exists in the database
                 req = requests.get(url, headers=headers, params=params)
-                if len(req.json()["list"]) == 0:
-                    requests.post(url, headers=headers, json=article)
+                try:
+                    if len(req.json()["list"]) == 0:
+                        requests.post(url, headers=headers, json=article)
+                except Exception as e:
+                    print(f"[MOF Scraper] Failed to post article {article['originalTitle']} to the database")
+                    print(e)
+
 
             timeend = datetime.now()
 

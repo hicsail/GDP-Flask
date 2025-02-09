@@ -159,7 +159,7 @@ def scrape_country(country, latest_date, keywords):
                 contype = category_span[1].get_text(strip=True).replace("分类：", "")
                 
                 source_text = top_info.find('p').get_text(strip=True)
-                original_source = top_info.split("来源：")[1].split("类型：")[0].strip()
+                original_source = source_text.split("来源：")[1].split("类型：")[0].strip()
 
                 tm = top_info.find_all('p')[1].get_text(strip=True)
 

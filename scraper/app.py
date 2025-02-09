@@ -198,7 +198,7 @@ def scrape_country(country, latest_date, keywords):
                     est_time = datetime.min
 
             record = {
-                "originalTitle": title,
+                "originalTitle": title.replace("\n", ""),
                 "originalContent": content,
                 "originalLanguage": "zh",
                 "source": "Ministry of Commerce of the People's Republic of China",

@@ -92,7 +92,7 @@ def scrape_country(country, latest_date, keywords):
             }
 
             req = requests.get(url, headers=headers, params=params)
-            if len(req.json().get("list")) > 0:
+            if len(req.json()["list"]) > 0:
                 print(f"[MOF Scraper] Article {link} already exists in the database, skipping...")
                 continue
 
@@ -255,7 +255,7 @@ def scrape():
                 
                 # check if article already exists in the database
                 req = requests.get(url, headers=headers, params=params)
-                if len(req.json().get("list")) == 0:
+                if len(req.json()["list"]) == 0:
                     requests.post(url, headers=headers, json=article)
 
             timeend = datetime.now()

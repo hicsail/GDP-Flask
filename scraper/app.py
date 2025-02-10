@@ -32,7 +32,7 @@ def get_target_url(country, keyword, startTime = "", page = 1):
     searchTypeVar = f"&keyWordType=all"
     keyWordVar = f"&includeAll={keyword}"
     miscVar = "&random=&notInclude=&size=30&searchScope=is_all&hightSearchType=all&radio=publish_time_str"
-    startTime = f"&startTime={startTime}&endTime=2025-02-08"
+    startTime = f"&startTime={startTime}&endTime=2024-07-01"
     pageVar = f"&page={page}"
 
     url = "/".join([domain, path, countryVar + searchTypeVar + keyWordVar + miscVar + startTime + pageVar]) 
@@ -226,19 +226,24 @@ def scrape():
             headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
 
             # get latest date of article in the database
-            date = "2024-07-01"
-            # date_params = {
-            #     "fields": "articlePublishDateEst",
-            #     "sort": "-articlePublishDateEst",
-            #     "where": f"(country,eq,{country.name})",
-            #     "limit": 1
-            # }
-            # date_req = requests.get(url, headers=headers, params=date_params)
-            # if len(date_req.json().get("list")) > 0:
-            #     date_est = date_req.json().get("list")[0].get("articlePublishDateEst")
-            #     date_obj = datetime.fromisoformat(date_est)
-            #     beijing_time = date_obj.astimezone(beijing_tz)
-            #     date = beijing_time.strftime("%Y-%m-%d")
+            date = ""
+            date_params = {
+                "fields": "articlePublishDateEst",
+                "sort": "-articlePublishDateEst",
+                "where": f"(country,eq,{country.name})~and(articlePublishDateEst,lte,exactDate,2024-07-01)",
+                "limit": 1
+            }
+            date_req = requests.get(url, headers=headers, params=date_params)
+            try:
+                if len(date_req.json().get("list")) > 0:
+                    date_est = date_req.json().get("list")[0].get("articlePublishDateEst")
+                    date_obj = datetime.fromisoformat(date_est)
+                    beijing_time = date_obj.astimezone(beijing_tz)
+                    date = beijing_time.strftime("%Y-%m-%d")
+            except Exception as e:
+                print(f"[MOF Scraper] Failed to get latest date for {country.name}")
+                print(e)
+                continue
 
             print("[MOF Scraper] =====================================")
             print(f"[MOF Scraper] Scraping {country.name} from {date} CST...")

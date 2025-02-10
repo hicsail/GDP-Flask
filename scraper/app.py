@@ -154,12 +154,20 @@ def scrape_country(country, latest_date, keywords):
                 #         break
 
                 top_info = article.find("section", class_="article-tool")
-                
-                category_span = top_info.find_all('span', class_='m-ar-none')
-                contype = category_span[1].get_text(strip=True).replace("分类：", "")
-                
-                source_text = top_info.find('p').get_text(strip=True)
-                original_source = source_text.split("来源：")[1].split("类型：")[0].strip()
+
+                contype = ""
+                if "分类" in top_info.get_text(strip=True):
+                    category_span = top_info.find_all('span', class_='m-ar-none')
+                    contype = category_span[1].get_text(strip=True).replace("分类：", "")
+                else:
+                    print(f"[MOF Scraper] Failed to get content type for {link}")
+
+                original_source = ""
+                if "来源" in top_info.get_text(strip=True):
+                    source_text = top_info.find('p').get_text(strip=True)
+                    original_source = source_text.split("来源：")[1].split("类型：")[0].strip()
+                else:
+                    print(f"[MOF Scraper] Failed to get source for {link}")
 
                 tm = top_info.find_all('p')[1].get_text(strip=True)
 

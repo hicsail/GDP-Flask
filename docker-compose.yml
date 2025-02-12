@@ -10,15 +10,15 @@ services:
       - 5001:80
     env_file:
       - .env
-  # translator:
-  #   container_name: gdp-flask-translator
-  #   build:
-  #     context: ./translator
-  #   restart: always
-  #   ports:
-  #     - 5002:80
-  #   env_file:
-  #     - .env
+  translator:
+    container_name: gdp-flask-translator
+    build:
+      context: ./translator
+    restart: always
+    ports:
+      - 5002:80
+    env_file:
+      - .env
   # classifier:
   #   container_name: gdp-flask-classifier
   #   build:

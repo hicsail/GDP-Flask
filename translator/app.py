@@ -20,7 +20,7 @@ def translate():
         url = os.getenv("NOCO_DB_URL")
         headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
         params = {
-            "where": "(isEnglish,eq,false)",
+            "where": "(isEnglish,eq,false)~and(originalTitle,isnot,null)",
             "limit": 10, # translate 10 records at a time
         }
         res = requests.get(url, headers=headers, params=params)
@@ -58,7 +58,8 @@ def translate():
 
 if __name__ == "__main__":
     load_dotenv()
-    scheduler.add_job(translate, "cron", hour="*", minute="*/5")
-    scheduler.start()
+    # scheduler.add_job(translate, "cron", hour="*", minute="*/5")
+    # scheduler.start()
+    translate()
     print("[MOF Translator] Start translating")
     app.run(port=5002)

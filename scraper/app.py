@@ -115,7 +115,7 @@ def scrape_country(country, latest_date, keywords):
             article = BeautifulSoup(article_page.content, "html.parser")
 
             # article does not exist
-            if article.find(id="zoom") is None or article.find(id="artitle") is None:
+            if article.find(id="zoom") is None and article.find("div", class_="art-con") is None:
                 print(f"[MOF Scraper] Article does not exist for {link}")
                 if "政策" in i.find("em", class_="tag").text:
                     continue
@@ -175,11 +175,18 @@ def scrape_country(country, latest_date, keywords):
                 if contype == "政策":
                     continue
 
-                title = article.find(id="artitle").text.strip()
                 for script in article.find(id="zoom").find_all("script"):
                     script.decompose()
 
-                content = article.find(id="zoom").text.strip()
+                if article.find(id="artitle") is not None:
+                    title = article.find(id="artitle").text.strip()
+                else:
+                    title = article.find("div", class_="art-title").text.strip()
+
+                if article.find(id="zoom") is not None:
+                    content = article.find(id="zoom").text.strip()
+                else:
+                    content = article.find("div", class_="art-con").text.strip()
 
                 # ignore duplicate articles
                 if title in result_set:

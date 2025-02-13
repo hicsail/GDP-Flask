@@ -21,6 +21,7 @@ def translate():
         headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
         params = {
             "where": "(isEnglish,eq,false)~and(originalTitle,isnot,null)",
+            "fields": "Id,originalTitle,translatedTitle,originalContent,translatedContent,originalOutlet,translatedOutlet,isEnglish",
             "limit": 10, # translate 10 records at a time
         }
         res = requests.get(url, headers=headers, params=params)

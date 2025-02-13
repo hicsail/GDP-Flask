@@ -175,9 +175,6 @@ def scrape_country(country, latest_date, keywords):
                 if contype == "政策":
                     continue
 
-                for script in article.find(id="zoom").find_all("script"):
-                    script.decompose()
-
                 if article.find(id="artitle") is not None:
                     title = article.find(id="artitle").text.strip()
                 else:
@@ -235,7 +232,15 @@ def scrape_country(country, latest_date, keywords):
 def scrape():
     print("[MOF Scraper] Sraping started at " + datetime.now().isoformat() + "\n")
     ignore = ["CN", "HK", "MO", "TW"]   # ignore Mainland China, Hong Kong, Macau, and Taiwan
+    start_scraping = False
+    start_point = "IT"
     for country in pycountry.countries:
+        if country.alpha_2 == start_point:
+            start_scraping = True
+        
+        if not start_scraping:
+            continue
+
         if country.alpha_2 not in ignore:
             url = os.getenv("NOCO_DB_URL")
             headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}

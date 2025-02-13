@@ -22,7 +22,7 @@ def translate():
         params = {
             "where": "(isEnglish,eq,false)~and(originalTitle,isnot,null)",
             "fields": "Id,originalTitle,translatedTitle,originalContent,translatedContent,originalOutlet,translatedOutlet,isEnglish",
-            "limit": 10, # translate 10 records at a time
+            "limit": 500, # translate 10 records at a time
         }
         res = requests.get(url, headers=headers, params=params)
         if res.json().get("pageInfo").get("totalRows") == 0:

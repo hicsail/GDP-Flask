@@ -2,14 +2,17 @@ from flask import Flask
 from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
 from datetime import datetime
-from ollama import chat
-from ollama import ChatResponse
+from ollama import Client, ChatResponse
 import os
 import requests
 import json
 
 app = Flask(__name__)
 scheduler = BackgroundScheduler()
+
+client = Client(
+  host=os.getenv("LLM_URL"),
+)
 
 @app.route('/health')
 def health_check():
@@ -44,7 +47,7 @@ def classify():
                 try:
                     originalEnglish = article["originalLanguage"] == "en"
                     print("[MOF Classifier] Classifying article: " + article["originalTitle"])
-                    response: ChatResponse = chat(model='llama3.2', messages=[
+                    response: ChatResponse = client.chat(model='llama3.2', messages=[
                         {
                             'role': 'system',
                             'content': 'You are an assistant tasked with classifying whether the given headline and body is related to financial activities involving Chinese financial institutions. Specifically, the content should be marked as relevant if it involves:'
@@ -73,7 +76,7 @@ def classify():
 #
                     break
                 except e:
-                    
+                    print(e)
                     attempts -= 1
                     print(f"[MOF Classifier] Request timeout. {attempts} attempt(s) left ...")
                     article["status"] = "undetermined"

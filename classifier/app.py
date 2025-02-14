@@ -120,6 +120,8 @@ def classify():
 
                         print("[MOF Classifier] Score: " + str(score))
                         article["AIScore"] = score
+                        requests.patch(db_url, headers=headers, json=article)
+                        print("Article classified: " + article["originalTitle"])
                     except Exception as e:
                         print(e)
                         article["AIScore"] = -1
@@ -131,8 +133,7 @@ def classify():
                     print(f"[MOF Classifier] Request timeout. {attempts} attempt(s) left ...")
                     article["AIScore"] = -1
 
-            requests.patch(db_url, headers=headers, json=article)
-            print("Article classified: " + article["originalTitle"])
+
 
 if __name__ == '__main__':
     load_dotenv()

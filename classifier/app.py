@@ -2,7 +2,8 @@ from flask import Flask
 from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
 from datetime import datetime
-
+from ollama import chat
+from ollama import ChatResponse
 import os
 import requests
 import json
@@ -42,33 +43,47 @@ def classify():
             while attempts > 0:
                 try:
                     originalEnglish = article["originalLanguage"] == "en"
+                    print("[MOF Classifier] Classifying article: " + article["originalTitle"])
+                    response: ChatResponse = chat(model='llama3.2', messages=[
+                        {
+                            'role': 'system',
+                            'content': 'You are an assistant tasked with classifying whether the given headline and body is related to financial activities involving Chinese financial institutions. Specifically, the content should be marked as relevant if it involves:'
+                                       '1. A Chinese lender, including the Import Export Bank or Development Bank.'
+                                       '2. A loan being signed, including agreements, ceremonies, or mentioning of loan amounts.'
+                                       '3. Information related to loans or debts.'
+                                       '4. Interest from other Chinese banks in financial activities.'
+                                       'Generate a short response indicating whether the content meets any of the above criteria. '
+                                       'Respond with "Yes" for relevance or "No" if not.',
+                        },
+                        {
+                            'role': 'user',
+                            'content': f'Headline: {article["originalTitle"] if originalEnglish else article["translatedTitle"]}\n\nBody: {article["originalContent"] if originalEnglish else article["translatedContent"]}',
+                        }
+                    ])
 
-                    form_data["llm_request"] = json.dumps({
-                        "headline": article["originalTitle"] if originalEnglish else article["translatedTitle"],
-                        "body": article["originalContent"] if originalEnglish else article["translatedContent"],
-                    })
+                    print(response['message']['content'])
 
-                    res = requests.post(llm_url, data=form_data, timeout=60)
-
-                    if "yes" in res.json().get("Result").lower()[:3]:
-                        article["status"] = "relevant"
-                    elif "no" in res.json().get("Result").lower()[:2]:
-                        article["status"] = "irrelevant"
-                    else:
-                        article["status"] = "undetermined"
-
+                    #
+                    #if "yes" in res.json().get("Result").lower()[:3]:
+                    #    article["status"] = "relevant"
+                    #elif "no" in res.json().get("Result").lower()[:2]:
+                    #    article["status"] = "irrelevant"
+                    #else:
+                    #    article["status"] = "undetermined"
+#
                     break
-                except:
+                except e:
+                    
                     attempts -= 1
                     print(f"[MOF Classifier] Request timeout. {attempts} attempt(s) left ...")
                     article["status"] = "undetermined"
 
-            requests.patch(db_url, headers=headers, json=article)
-            print("Article classified: " + article["originalTitle"])
+            #requests.patch(db_url, headers=headers, json=article)
+            #print("Article classified: " + article["originalTitle"])
 
 if __name__ == '__main__':
     load_dotenv()
-    scheduler.add_job(classify, "cron", hour="*", minute="*/5", max_instances=1)
+    scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1)
     scheduler.start()
     print("Classifier schedule started")
     app.run(port=5003)

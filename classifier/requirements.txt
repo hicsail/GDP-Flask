@@ -2,3 +2,4 @@ APScheduler
 flask
 python-dotenv
 requests
+ollama

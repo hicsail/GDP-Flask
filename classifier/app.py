@@ -81,8 +81,9 @@ def classify():
         db_url = os.getenv("NOCO_DB_URL")
         headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
         params = {
+            "fields": "Id,originalTitle,translatedTitle,originalContent,translatedContent,originalOutlet,translatedOutlet,isEnglish,AIScore,originalLanguage",
             "where": "(AIScore,is,null)~and(isEnglish,eq,true)",
-            "limit": 50,
+            "limit": 50
         }
 
         articles = requests.get(db_url, headers=headers, params=params)

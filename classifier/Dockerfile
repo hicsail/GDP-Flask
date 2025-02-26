@@ -2,8 +2,6 @@ FROM python:3.11-slim as build
 
 WORKDIR /app
 
-COPY . .
-
 ARG NOCO_DB_URL
 ARG NOCO_XC_TOKEN
 ARG LLM_URL
@@ -14,7 +12,11 @@ ENV LLM_URL=${LLM_URL}
 
 ENV PYTHONUNBUFFERED=1
 
+COPY requirements.txt .
+
 RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
 
 EXPOSE 5001
 

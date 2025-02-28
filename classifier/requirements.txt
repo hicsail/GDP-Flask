@@ -3,7 +3,4 @@ flask
 python-dotenv
 requests
 ollama
-playwright
 beautifulsoup4
-langchain
-langchain_community

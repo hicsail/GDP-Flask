@@ -144,8 +144,8 @@ def classify():
 
 if __name__ == '__main__':
     load_dotenv()
-    #scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1)
-    #scheduler.start()
-    classify()
+    scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1)
+    scheduler.start()
+    #classify()
     print("Classifier schedule started")
     app.run(port=5003)

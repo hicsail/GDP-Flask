@@ -6,6 +6,9 @@ from ollama import Client, ChatResponse
 import os
 import requests
 from pydantic import BaseModel
+from bs4 import BeautifulSoup
+import re
+
 
 
 class LLMOutput(BaseModel):
@@ -58,6 +61,21 @@ Score 1: Mentions China’s support but provides no details on the specific acti
 def health_check():
     return 'healthy'
 
+
+def getText(url):
+    print("[MOF Classifier] Loading URL: " + url)
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, "html.parser")
+            text = soup.get_text()
+            return re.sub(r"\s+", " ", text).strip()
+        else:
+            return None
+    except Exception as e:
+        print(f"[MOF Classifier] Error loading URL: {e}")
+        return None
+
 def classify():
     print("[MOF Classifier] Classifying started at " + datetime.now().isoformat() + "\n")
 
@@ -65,11 +83,9 @@ def classify():
         db_url = os.getenv("NOCO_DB_URL")
         headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
         params = {
-            "fields": "Id,originalTitle,translatedTitle,originalContent,translatedContent,originalOutlet,translatedOutlet,isEnglish,AIScore,originalLanguage",
-            "where": "(AIScore,is,null)~and(isEnglish,eq,true)",
-            "limit": 50
+            "fields": "Id,originalTitle,translatedTitle,originalContent,translatedContent,originalOutlet,translatedOutlet,isEnglish,originalLanguage,articleUrl,webScrapedContent",
+            "where": "(AIScore3,is,null)~and(isEnglish,eq,true)~and(FinanceClassification,isnot,null)"
         }
-
         articles = requests.get(db_url, headers=headers, params=params)
         articles = articles.json()
         if articles.get("pageInfo").get("totalRows") == 0:
@@ -80,8 +96,13 @@ def classify():
             attempts = 2
             while attempts > 0:
                 try:
-                    originalEnglish = article["originalLanguage"] == "en"
                     print("[MOF Classifier] Classifying article: " + article["originalTitle"])
+                    llm_title = article["translatedTitle"] if article.get("translatedTitle") else article["originalTitle"]
+                    llm_content = article["translatedContent"] if article.get("translatedContent") else article["originalContent"]
+                    if len(llm_content) < 1000:
+                        if( article["webScrapedContent"] == None):
+                            article["webScrapedContent"] = getText(article["articleUrl"])
+                    llm_content = article["webScrapedContent"] if article["webScrapedContent"] != None else llm_content
                     response: ChatResponse = client.chat(model='deepseek-r1:latest', messages=[
                         {
                             'role': 'system',
@@ -89,7 +110,7 @@ def classify():
                         },
                         {
                             'role': 'user',
-                            'content': f'Headline: {article["originalTitle"] if originalEnglish else article["translatedTitle"]}\n\nBody: {article["originalContent"] if originalEnglish else article["translatedContent"]}',
+                            'content': f'Headline: {llm_title}\n\nBody: {llm_content}',
                         }
                     ],
                     format=LLMOutput.model_json_schema(),
@@ -104,25 +125,27 @@ def classify():
                         score = (int(score_a) + int(score_b) + int(score_c) + int(score_d)) / 4
 
                         print("[MOF Classifier] Score: " + str(score))
-                        article["AIScore"] = score
+                        article["AIScore3"] = score
+                        article["AIScore3Justification"] = text.split('"overall_justification":')[1].split('}')[0]
                         requests.patch(db_url, headers=headers, json=article)
                         print("Article classified: " + article["originalTitle"])
                     except Exception as e:
                         print(e)
-                        article["AIScore"] = -1
+                        article["AIScore3"] = -1
 
                     break
                 except Exception as e:
                     print(e)
                     attempts -= 1
                     print(f"[MOF Classifier] Request timeout. {attempts} attempt(s) left ...")
-                    article["AIScore"] = -1
+                    article["AIScore3"] = -2
 
 
 
 if __name__ == '__main__':
     load_dotenv()
-    scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1)
-    scheduler.start()
+    #scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1)
+    #scheduler.start()
+    classify()
     print("Classifier schedule started")
     app.run(port=5003)

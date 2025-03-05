@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from bs4 import BeautifulSoup
 import re
 
-
+AI_SCORE = "AIScore2"
 
 class LLMOutput(BaseModel):
     overall_score: int
@@ -84,7 +84,7 @@ def classify():
         headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
         params = {
             "fields": "Id,originalTitle,translatedTitle,originalContent,translatedContent,originalOutlet,translatedOutlet,isEnglish,originalLanguage,articleUrl,webScrapedContent",
-            "where": "(AIScore3,is,null)~and(isEnglish,eq,true)~and(FinanceClassification,isnot,null)"
+            "where": f"({AI_SCORE}_a,is,null)~and(isEnglish,eq,true)~and(FinanceClassification,isnot,null)"
         }
         articles = requests.get(db_url, headers=headers, params=params)
         articles = articles.json()
@@ -102,7 +102,7 @@ def classify():
                     if len(llm_content) < 1000:
                         if( article["webScrapedContent"] == None):
                             article["webScrapedContent"] = getText(article["articleUrl"])
-                    llm_content = article["webScrapedContent"] if article["webScrapedContent"] != None else llm_content
+                    #llm_content = article["webScrapedContent"] if article["webScrapedContent"] != None else llm_content
                     response: ChatResponse = client.chat(model='deepseek-r1:latest', messages=[
                         {
                             'role': 'system',
@@ -125,24 +125,29 @@ def classify():
                         score = (int(score_a) + int(score_b) + int(score_c) + int(score_d)) / 4
 
                         print("[MOF Classifier] Score: " + str(score))
-                        article["AIScore3"] = score
-                        article["AIScore3Justification"] = text.split('"overall_justification":')[1].split('}')[0]
+                        article[AI_SCORE] = score
+                        article[f"{AI_SCORE}_a"] = score_a
+                        article[f"{AI_SCORE}_b"] = score_b
+                        article[f"{AI_SCORE}_c"] = score_c
+                        article[f"{AI_SCORE}_d"] = score_d
+                        article[f"{AI_SCORE}Justification"] = text.split('"overall_justification":')[1].split('}')[0]
                         requests.patch(db_url, headers=headers, json=article)
                         print("Article classified: " + article["originalTitle"])
                     except Exception as e:
                         print(e)
-                        article["AIScore3"] = -1
+                        article[AI_SCORE] = -1
 
                     break
                 except Exception as e:
                     print(e)
                     attempts -= 1
                     print(f"[MOF Classifier] Request timeout. {attempts} attempt(s) left ...")
-                    article["AIScore3"] = -2
+                    article[AI_SCORE] = -2
 
 
 
 if __name__ == '__main__':
+    print(f"Updating {AI_SCORE}")
     load_dotenv()
     scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1)
     scheduler.start()

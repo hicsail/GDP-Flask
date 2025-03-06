@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from bs4 import BeautifulSoup
 import re
 
-AI_SCORE = "AIScore2"
+AI_SCORE = "AIScore3"
 
 class LLMOutput(BaseModel):
     overall_score: int
@@ -102,7 +102,7 @@ def classify():
                     if len(llm_content) < 1000:
                         if( article["webScrapedContent"] == None):
                             article["webScrapedContent"] = getText(article["articleUrl"])
-                    #llm_content = article["webScrapedContent"] if article["webScrapedContent"] != None else llm_content
+                    llm_content = article["webScrapedContent"] if article["webScrapedContent"] != None else llm_content
                     response: ChatResponse = client.chat(model='deepseek-r1:latest', messages=[
                         {
                             'role': 'system',

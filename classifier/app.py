@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 import re
 
 AI_SCORE = "AIScore4"
-model = "gemma3:12b"
+model = "gemma3:4b"
 
 class LLMExtractionA(BaseModel):
     recipient: str
@@ -213,7 +213,7 @@ def classify():
 if __name__ == '__main__':
     print(f"Updating {AI_SCORE}")
     load_dotenv()
-    scheduler.add_job(classify, "cron", hour="*", minute="*/5", max_instances=4)
+    scheduler.add_job(classify, "cron", hour="*", minute="*/5", max_instances=1)
     scheduler.start()
     #classify()
     print("Classifier schedule started")

@@ -1,6 +1,5 @@
 import json
 import os
-import re
 from datetime import datetime
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -419,6 +418,7 @@ def classify(offset=0):
         }
         articles = requests.get(db_url, headers=headers, params=params)
         articles = articles.json()
+
         if articles.get("pageInfo").get("totalRows") == 0:
             print("[MOF Classifier] No articles to classify")
             break
@@ -432,21 +432,28 @@ def classify(offset=0):
                     llm_content = article["translatedContent"] if article.get("translatedContent") else article["originalContent"]
                     if len(llm_content) < 1000:
                         if( article["webScrapedContent"] == None):
+                            print("[MOF Classifier] Article too short. Scraping ...")
                             article["webScrapedContent"] = getText(article["articleUrl"])
                     llm_content = article["webScrapedContent"] if article["webScrapedContent"] != None else llm_content
                     llm_prompt = f"Headline: {llm_title}\n\nBody: {llm_content}"
 
-                    if (len(llm_prompt) > 12000):
+                    if (len(llm_prompt) > 10000):
                         o_len = len(llm_prompt)
                         print("[MOF Classifier] Article too long. Condensing ...")
                         llm_prompt = condense_article(llm_prompt)
                         n_len = len(llm_prompt)
                         print(f"[MOF Classifier] Condensed prompt by {o_len - n_len} characters")
 
+                    print(f"[MOF Classifier] Prompt length: {len(llm_prompt)}")
+                    print(f"[MOF Classifier] Extracting a information ...")
                     a_extraction_response = getExtraction(prompt, prompt_a_extraction, llm_prompt, LLMExtractionA)
+                    print(f"[MOF Classifier] Extracting b information ...")
                     b_extraction_response = getExtraction(prompt, prompt_b_extraction, llm_prompt, LLMExtractionB)
+                    print(f"[MOF Classifier] Extracting c information ...")
                     c_extraction_response = getExtraction(prompt, prompt_c_extraction, llm_prompt, LLMExtractionC)
+                    print(f"[MOF Classifier] Extracting d information ...")
                     d_extraction_response = getExtraction(prompt, prompt_d_extraction, llm_prompt, LLMExtractionD)
+                    print("[MOF Classifier] Extraction complete")
                     article['a'] = json.loads(str(a_extraction_response['message']['content']))['recipient']
                     article['b'] = json.loads(str(b_extraction_response['message']['content']))['chinese_institution']
                     article['c'] = json.loads(str(c_extraction_response['message']['content']))['financial_instrument']
@@ -502,10 +509,13 @@ if __name__ == '__main__':
     print(f"Updating {AI_SCORE}")
     load_dotenv()
     scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1)
-    #scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1, args=[20])
-    #scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1, args=[40])
-    #scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1, args=[60])
+    #scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1, args=[50])
+    #scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1, args=[100])
+    #scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1, args=[150])
     scheduler.start()
     #classify()
+    #classify(10)
+    #classify(20)
+    #classify(30)
     print("Classifier schedule started")
     app.run(port=5003)

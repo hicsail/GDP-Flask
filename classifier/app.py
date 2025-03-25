@@ -10,7 +10,9 @@ from ollama import Client, ChatResponse
 from pydantic import BaseModel
 from enum import Enum
 import re
-
+import concurrent.futures
+from multiprocessing import Process, Queue
+import traceback
 
 AI_SCORE = "AIScore4"
 model = "gemma3:12b"
@@ -75,8 +77,8 @@ country_list = [
     'Egypt',
     'El Salvador',
     'Equatorial Guinea',
-    'Eritrea', ','
-               'Estonia',
+    'Eritrea',
+    'Estonia',
     'Eswatini',
     'Ethiopia',
     'Faroe Islands',
@@ -330,6 +332,28 @@ class LLMScore(BaseModel):
 class LLMOutput(BaseModel):
     justification: str
 
+def run_with_timeout(fn, timeout, *args, **kwargs):
+    def wrapper(q):
+        try:
+            result = fn(*args, **kwargs)
+            q.put(result)
+        except Exception as e:
+            q.put(e)
+
+    q = Queue()
+    p = Process(target=wrapper, args=(q,))
+    p.start()
+    p.join(timeout)
+
+    if p.is_alive():
+        p.terminate()
+        raise TimeoutError(f"Function timed out after {timeout} seconds")
+
+    result = q.get()
+    if isinstance(result, Exception):
+        raise result
+    return result
+
 def split_into_chunks(text, max_chars=3000):
     sentences = re.split(r'(?<=[.!?])\s+', text)
     chunks = []
@@ -358,29 +382,31 @@ def summarize_chunk(text):
               f"C. Financial Instrument: Identify and extract specific terminology related to financial transactions\n"
               f"D. Project or Activity: Identify and extract the purpose of the loan\n"
               f"\n{text}")
-    response = client.chat(model=model, messages=[
-        {'role': 'user', 'content': prompt}
-    ])
+    response: ChatResponse = run_with_timeout(
+        client.chat,
+        60,
+        model=model,
+        messages=[
+            {'role': 'user', 'content': prompt}
+        ],
+        stream=False
+    )
     return response['message']['content']
 
 
 def getExtraction(prompt, extractionPrompt, content, OutputClass):
-    response: ChatResponse = client.chat(model=model, messages=[
-        {
-            'role': 'system',
-            'content': prompt,
-        },
-        {
-            'role': 'system',
-            'content': extractionPrompt,
-        },
-        {
-            'role': 'user',
-            'content': content,
-        }
-    ],
-    format=OutputClass.model_json_schema(),
-    stream=False)
+    response: ChatResponse = run_with_timeout(
+        client.chat,
+        60,
+        model=model,
+        messages=[
+            {'role': 'system', 'content': prompt},
+            {'role': 'system', 'content': extractionPrompt},
+            {'role': 'user', 'content': content}
+        ],
+        format=OutputClass.model_json_schema(),
+        stream=False
+    )
     return response
 
 
@@ -405,14 +431,14 @@ def getText(url):
 
 
 def classify(offset=0):
-    print("[MOF Classifier] Classifying started at " + datetime.now().isoformat() + "\n")
+    print("[MOF Classifier] Classifying started at " + datetime.now().isoformat() + " with offset of: " + str(offset) + "\n")
 
     while True:
         db_url = os.getenv("NOCO_DB_URL")
         headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
         params = {
             "fields": "Id,originalTitle,translatedTitle,originalContent,translatedContent,originalOutlet,translatedOutlet,isEnglish,originalLanguage,articleUrl,webScrapedContent",
-            "where": f"({AI_SCORE},is,null)~and(isEnglish,eq,true)~and(FinanceClassification,isnot,null)",
+            "where": f"({AI_SCORE},is,null)~and(isEnglish,eq,true)",
             "offset": offset,
             "limit": 10,
         }
@@ -421,11 +447,11 @@ def classify(offset=0):
 
         if articles.get("pageInfo").get("totalRows") == 0:
             print("[MOF Classifier] No articles to classify")
-            break
+            return
 
         for article in articles.get("list"):
-            attempts = 2
-            while attempts > 0:
+            MAX_ATTEMPTS = 2
+            for attempt in range(1, MAX_ATTEMPTS + 1):
                 try:
                     print("[MOF Classifier] Classifying article: " + article["originalTitle"])
                     llm_title = article["translatedTitle"] if article.get("translatedTitle") else article["originalTitle"]
@@ -497,25 +523,23 @@ def classify(offset=0):
                     justification = response['justification']
                     article[f"{AI_SCORE}_Justification"] = justification
                     requests.patch(db_url, headers=headers, json=article)
+                    break
                 except Exception as e:
                     print(e)
-                    attempts -= 1
-                    print(f"[MOF Classifier] Request timeout. {attempts} attempt(s) left ...")
-                    article[AI_SCORE] = -2
-                break
+                    print(f"[MOF Classifier] Request timeout. On attempt: {attempt}")
+                    if attempt == MAX_ATTEMPTS:
+                        article[AI_SCORE] = -2
+                        article[f"{AI_SCORE}_Justification"] = "Error: " + str(e)
+                        requests.patch(db_url, headers=headers, json=article)
 
 
 if __name__ == '__main__':
     print(f"Updating {AI_SCORE}")
     load_dotenv()
-    scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1)
-    #scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1, args=[50])
-    #scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1, args=[100])
-    #scheduler.add_job(classify, "cron", hour="*", minute="*/1", max_instances=1, args=[150])
+    scheduler.add_job(classify, "cron", hour="*", minute="*/15", max_instances=1, args=[0])
+    scheduler.add_job(classify, "cron", hour="*", minute="*/15", max_instances=1, args=[50])
+    scheduler.add_job(classify, "cron", hour="*", minute="*/15", max_instances=1, args=[100])
+    scheduler.add_job(classify, "cron", hour="*", minute="*/15", max_instances=1, args=[150])
     scheduler.start()
-    #classify()
-    #classify(10)
-    #classify(20)
-    #classify(30)
     print("Classifier schedule started")
     app.run(port=5003)

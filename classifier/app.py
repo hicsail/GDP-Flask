@@ -10,9 +10,8 @@ from ollama import Client, ChatResponse
 from pydantic import BaseModel
 from enum import Enum
 import re
-import concurrent.futures
 from multiprocessing import Process, Queue
-import traceback
+
 
 AI_SCORE = "AIScore4"
 model = "gemma3:12b"
@@ -384,7 +383,7 @@ def summarize_chunk(text):
               f"\n{text}")
     response: ChatResponse = run_with_timeout(
         client.chat,
-        60,
+        120,
         model=model,
         messages=[
             {'role': 'user', 'content': prompt}
@@ -397,7 +396,7 @@ def summarize_chunk(text):
 def getExtraction(prompt, extractionPrompt, content, OutputClass):
     response: ChatResponse = run_with_timeout(
         client.chat,
-        60,
+        120,
         model=model,
         messages=[
             {'role': 'system', 'content': prompt},
@@ -441,6 +440,7 @@ def classify(offset=0):
             "where": f"({AI_SCORE},is,null)~and(isEnglish,eq,true)",
             "offset": offset,
             "limit": 10,
+            "sort": "-articlePublishDateEst",
         }
         articles = requests.get(db_url, headers=headers, params=params)
         articles = articles.json()
@@ -536,10 +536,11 @@ def classify(offset=0):
 if __name__ == '__main__':
     print(f"Updating {AI_SCORE}")
     load_dotenv()
-    scheduler.add_job(classify, "cron", hour="*", minute="*/15", max_instances=1, args=[0])
-    scheduler.add_job(classify, "cron", hour="*", minute="*/15", max_instances=1, args=[50])
-    scheduler.add_job(classify, "cron", hour="*", minute="*/15", max_instances=1, args=[100])
-    scheduler.add_job(classify, "cron", hour="*", minute="*/15", max_instances=1, args=[150])
-    scheduler.start()
+    #scheduler.add_job(classify, "cron", hour="*", minute="*/15", max_instances=1, args=[0])
+    #scheduler.add_job(classify, "cron", hour="*", minute="*/15", max_instances=1, args=[50])
+    #scheduler.add_job(classify, "cron", hour="*", minute="*/15", max_instances=1, args=[100])
+    #scheduler.add_job(classify, "cron", hour="*", minute="*/15", max_instances=1, args=[150])
+    #scheduler.start()
+    classify()
     print("Classifier schedule started")
     app.run(port=5003)

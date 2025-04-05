@@ -1,0 +1,14 @@
+version: "3"
+
+services:
+  grouping:
+    container_name: gdp-flask-grouping
+    build:
+      context: .
+    restart: no
+    ports:
+      - 5004:80
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/output

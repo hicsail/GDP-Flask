@@ -23,8 +23,8 @@ services:
     container_name: gdp-flask-classifier
     build:
       context: ./classifier
-    image: hicsail/gdp-flask-classifier:staging
-    restart: always
+    #image: hicsail/gdp-flask-classifier:staging
+    restart: no
     ports:
       - 5003:80
     env_file:

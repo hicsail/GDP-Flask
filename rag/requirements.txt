@@ -1,0 +1,8 @@
+flask
+requests
+sentence-transformers
+faiss-cpu
+pandas
+numpy
+chromadb
+hf_xet

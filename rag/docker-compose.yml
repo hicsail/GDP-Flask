@@ -1,0 +1,23 @@
+version: "3"
+
+services:
+  rag:
+    container_name: gdp-flask-rag
+    build:
+      context: .
+    restart: no
+    ports:
+      - 5005:5005
+    env_file:
+      - .env
+    volumes:
+      - ./data/data:/app/output
+      - ./data/hf_cache:/root/.cache/huggingface
+  chroma:
+    container_name: chroma
+    image: ghcr.io/chroma-core/chroma:latest
+    restart: no
+    ports:
+      - 8000:8000
+    volumes:
+      - ./data/chroma:/data

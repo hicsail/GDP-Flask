@@ -13,6 +13,8 @@ services:
     volumes:
       - ./data/data:/app/output
       - ./data/hf_cache:/root/.cache/huggingface
+      - ./data/chroma:/data
+
   chroma:
     container_name: chroma
     image: ghcr.io/chroma-core/chroma:latest

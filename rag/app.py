@@ -1,3 +1,5 @@
+from http.client import responses
+
 import pandas as pd
 from sentence_transformers import SentenceTransformer
 import chromadb
@@ -8,9 +10,105 @@ from sklearn.cluster import DBSCAN
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-
 CACHE_PATH = "/app/output/fetched_articles.json"
+CHROMA_CACHE_PATH = "/app/output/chroma_cache.json"
 CSV_PATH = "/app/database.csv"
+
+loanIds = [
+    "EG.056",
+    "EG.058",
+    "DJ.007",
+    "UG.044",
+    "UG.041",
+    "DJ.003",
+    "DJ.017",
+    "NG.034",
+    "GA.006",
+    "GA.037",
+    "GA.038",
+    "GA.015",
+    "GA.045",
+    "ID.O.1",
+    "GA.004",
+    "GA.042",
+    "LA.W.1",
+    "ER.016",
+    "KE.101",
+    "ER.005",
+    "ER.008",
+    "ER.011",
+    "ER.010",
+    "ER.004",
+    "EG.057",
+    "ER.019",
+    "ER.022",
+    "ET.017",
+    "ET.006",
+    "ET.033",
+    "CG.009.16",
+    "CG.009.14",
+    "CG.009.19",
+    "CG.009.20",
+    "CD.009.21",
+    "ZM.O.01",
+    "NG.C.01",
+    "PAK.P. 1",
+    "SAU.1",
+    "AO.144",
+    "ET.055",
+    "AO.009.75",
+    "AO.009.71",
+    "AO.009.82",
+    "CF.001",
+    "CF.014",
+    "BR.E.001",
+    "NG.017",
+    "NG.016",
+    "EG.059",
+    "EG.060",
+    "GH.015.02",
+    "GH.019",
+    "GH.005",
+    "CM.062",
+    "CM.058",
+    "CM.046",
+    "CM.054",
+    "CM.068",
+    "CM.013",
+    "CM.016",
+    "CM.005",
+    "CM.014",
+    "CM.017",
+    "CM.018",
+    "CM.084",
+    "KE.104",
+    "JM.S.1",
+    "EG.003",
+    "BR.E.002",
+    "BR.E.003",
+    "AO.001.",
+    "GH.001.A",
+    "GH.001.B",
+    "KE.105",
+    "KE.106",
+    "KE.071",
+    "KE.058",
+    "KE.010",
+    "KE.107",
+    "MA.027",
+    "TN.030",
+    "GA.003",
+    "GA.044",
+    "CM.010",
+    "CM.028",
+    "CM.008",
+    "CM.039",
+    "UG.018",
+    "UG.034",
+    "AO.148",
+    "EG.059",
+    "BR.015",
+]
 
 def fetch_all_articles(page_size=100, max_records=50000):
     db_url = os.getenv("NOCO_DB_URL")
@@ -20,10 +118,10 @@ def fetch_all_articles(page_size=100, max_records=50000):
 
     while True:
         params = {
-            "fields": "Id,originalTitle,articleUrl,a,b,c,d,webScrapedContent,originalContent,translatedTitle,translatedContent,cluster_id,source",
+            "fields": "Id,originalTitle,articleUrl,a,b,c,d,webScrapedContent,originalContent,translatedTitle,translatedContent,cluster_id,source,Loans",
             "offset": offset,
             "limit": page_size,
-            "sort": "-articlePublishDateEst",
+            "where": "(FinanceClassification,isnot,null)",  # This ensures there is at least one Loan
         }
 
         response = requests.get(db_url, headers=headers, params=params)
@@ -66,8 +164,45 @@ def load_articles_from_disk(path="/app/output/fetched_articles.json"):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
+def insert_into_chroma_if_needed(articles, model, cache_path=CHROMA_CACHE_PATH):
+    if os.path.exists(cache_path):
+        print("📁 Skipping ChromaDB insert — already cached")
+        return
+
+    insert_into_chroma(articles, model)
+
+    with open(cache_path, "w") as f:
+        f.write("inserted")
+
+
 def extract_article_text(article):
-    return article.get("translatedContent") or article.get("originalContent") or ""
+    parts = [
+        article.get("originalTitle", ""),
+        article.get("articleUrl", ""),
+        article.get("a", ""),
+        article.get("b", ""),
+        article.get("c", ""),
+        article.get("d", ""),
+        article.get("a", ""),
+        article.get("b", ""),
+        article.get("c", ""),
+        article.get("d", ""),
+        article.get("a", ""),
+        article.get("b", ""),
+        article.get("c", ""),
+        article.get("d", ""),
+        article.get("a", ""),
+        article.get("b", ""),
+        article.get("c", ""),
+        article.get("d", ""),
+        article.get("webScrapedContent", ""),
+        article.get("originalContent", ""),
+        article.get("translatedTitle", ""),
+        article.get("translatedContent", ""),
+        article.get("source", "")
+    ]
+    return " ".join(p for p in parts if p)
+
 
 def deduplicate_articles_by_cluster(articles):
     seen_clusters = set()
@@ -84,8 +219,8 @@ def deduplicate_articles_by_cluster(articles):
     return filtered_articles
 
 def load_chroma_collection():
-    chroma_client = chromadb.Client()
-    return chroma_client.get_or_create_collection(name="articles")
+    chroma_client = chromadb.PersistentClient('/data')
+    return chroma_client.get_or_create_collection("articles", metadata={"hnsw:space": "cosine"})
 
 def embed_articles(articles, model):
     texts = [extract_article_text(a) for a in articles]
@@ -146,15 +281,23 @@ def cluster_embeddings(embeddings, metadatas, eps=0.25, min_samples=2):
 def load_and_embed_csv(csv_path, model):
     df = pd.read_csv(csv_path)
 
+    LENDER_MAP = {
+        "CDB": "China Development Bank",
+        "CHEXIM": "China Export-Import Bank",
+    }
+
+    def expand_lenders(lender_str):
+        return ", ".join(LENDER_MAP.get(l.strip(), l.strip()) for l in lender_str.split(","))
+
     # Choose fields to include in embedding
     def combine_fields(row):
         return " | ".join([
             str(row.get("Project Name", "")),
-            str(row.get("Narrative", "")),
+            str(row.get("Loan Sign Year", "")),
+            str(row.get("Project Status", "")),
             str(row.get("Loan Type", "")),
-            str(row.get("Sector", "")),
-            str(row.get("Country", "")),
-            str(row.get("Reported Amount in millions", "")) + " " + str(row.get("Currency", ""))
+            str(row.get("Borrowing Entity", "")),
+            expand_lenders(str(row.get("Lender", "")))
         ])
 
     combined_texts = df.apply(combine_fields, axis=1).tolist()
@@ -173,42 +316,97 @@ def get_cluster_centroids(clustered_articles, model):
             centroids[cluster_id] = np.mean(vecs, axis=0)
     return centroids
 
-def match_clusters_to_csv(centroids, csv_embeddings, csv_df, threshold=0.75):
-    matches = {}
+def getSourceText(row, column="Source 1"):
+    url = row.get(column)
+    if url:
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                return response.text
+            else:
+                return ""
+        except requests.RequestException as e:
+            return ""
+    return ""
 
-    for cluster_id, centroid in centroids.items():
-        sims = cosine_similarity([centroid], csv_embeddings)[0]
-        max_score = np.max(sims)
-        max_index = np.argmax(sims)
+LENDER_MAP = {
+    "CDB": "China Development Bank",
+    "CHEXIM": "China Export-Import Bank",
+}
 
-        if max_score >= threshold:
-            matches[cluster_id] = {
-                "match_score": max_score,
-                "csv_row": csv_df.iloc[max_index].to_dict()
-            }
-        else:
-            matches[cluster_id] = None  # No match
+def expand_lenders(lender_str):
+    return ", ".join(LENDER_MAP.get(l.strip(), l.strip()) for l in lender_str.split(","))
+
+def build_project_text(row):
+    return " | ".join([
+        str(row.get("Project Name", "")),
+        str(row.get("Loan Sign Year", "")),
+        str(row.get("Loan Type", "")),
+        str(row.get("Borrowing Entity", "")),
+        str(row.get("Country", "")),
+        str(row.get("Region (UN)", "")),
+        str(row.get("Borrowing Entity", "")),
+        str(row.get("Reported Amount in millions", "")),
+        str(row.get("Sector", "")),
+        str(row.get("Sub-sector", "")),
+        expand_lenders(str(row.get("Lender", ""))),
+        #getSourceText(row, "Source 1"),
+        #getSourceText(row, "Source 2"),
+    ])
+
+
+def search_project_in_articles(row, model, article_embeddings, metadatas, top_k=5, min_score=0.6):
+    """
+    Searches for the most relevant articles for a given CSV row using cosine similarity on embeddings.
+
+    Args:
+        row (pd.Series): A single row from the loan/project CSV.
+        model (SentenceTransformer): The sentence transformer model.
+        article_embeddings (List[List[float]]): Preloaded ChromaDB article embeddings.
+        metadatas (List[dict]): Corresponding article metadata.
+        top_k (int): How many top results to return.
+        min_score (float): Minimum similarity threshold.
+
+    Returns:
+        List[dict]: Matched articles with score and metadata.
+    """
+
+
+    project_text = build_project_text(row)
+    embedding = model.encode([project_text], normalize_embeddings=True)
+
+    sims = cosine_similarity(embedding, article_embeddings)[0]
+    top_indices = np.argsort(sims)[::-1]
+
+    matches = []
+    for idx in top_indices:
+        score = float(sims[idx])
+        if score < min_score:
+            continue
+        matches.append({
+            "score": score,
+            "article": metadatas[idx]
+        })
+        if len(matches) >= top_k:
+            break
 
     return matches
 
-def match_top_3_clusters_to_csv(centroids, csv_embeddings, csv_df):
-    matches = {}
+def search_all_projects(csv_df, model, article_embeddings, metadatas, top_k=3, min_score=0.8):
+    for idx, row in csv_df.iterrows():
+        print(row)
+        matches = search_project_in_articles(row, model, article_embeddings, metadatas, top_k=top_k, min_score=min_score)
 
-    for cluster_id, centroid in centroids.items():
-        sims = cosine_similarity([centroid], csv_embeddings)[0]
-        top_indices = np.argsort(sims)[::-1][:3]  # Top 3 scores
+        if not matches:
+            continue  # Skip projects with no strong matches
 
-        top_matches = []
-        for idx in top_indices:
-            row = csv_df.iloc[idx].to_dict()
-            top_matches.append({
-                "score": float(sims[idx]),  # Convert from np.float32 for JSON-safe output
-                "row": row
-            })
+        print(f"\n🔍 Project {idx}: {row.get('Project Name', 'Unnamed')}")
 
-        matches[cluster_id] = top_matches
+        for match in matches:
+            title = match["article"].get("translatedTitle") or match["article"].get("originalTitle") or "Untitled"
+            source = match["article"].get("source", "unknown")
+            print(f"  ✅ {title} (from {source}) — Score: {match['score']:.2f}")
 
-    return matches
 
 def main():
     if  os.path.exists(CACHE_PATH):
@@ -228,31 +426,72 @@ def main():
     # Group by similarity
     print("🔄 Loading model...")
     model = SentenceTransformer("all-MiniLM-L6-v2")
-    print("🔄 Loading articles into ChromaDB...")
-    insert_into_chroma(filtered_articles, model)
-    print("🧠 Running clustering...")
+    # Insert if needed
+    insert_into_chroma_if_needed(filtered_articles, model)
 
+    # Search
+    csv_df = pd.read_csv(CSV_PATH)
     collection = load_chroma_collection()
-    ids, embeddings, metadatas = fetch_all_embeddings_from_chroma(collection)
-    clustered = cluster_embeddings(embeddings, metadatas)
 
-    csv_df, csv_embeddings = load_and_embed_csv(CSV_PATH, model)
-    centroids = get_cluster_centroids(clustered, model)
-    matches = match_top_3_clusters_to_csv(centroids, csv_embeddings, csv_df)
+    print(f"📦 Chroma Collection contains {collection.count()} documents")
 
-    for cluster_id, top_matches in matches.items():
-        print(f"\n📚 Cluster {cluster_id} — Top 3 Matches:")
+    # Optional debug
+    print("\n🔎 DEBUGGING CHROMA QUERY")
+    test_embedding = model.encode(["Test project"], normalize_embeddings=True)
+    test_results = collection.query(
+        query_embeddings=test_embedding,
+        n_results=3,
+        include=["metadatas", "distances"]
+    )
+    for meta, dist in zip(test_results['metadatas'][0], test_results['distances'][0]):
+        score = 1 - dist
+        title = meta.get("translatedTitle") or meta.get("originalTitle") or "Untitled"
+        print(f"  🧪 Score: {score:.2f}, Title: {title}")
 
-        for match in top_matches:
-            row = match["row"]
-            print(f"  ✅ {row.get('Project Name', 'Unknown')} ({row.get('Country', 'Unknown')}) — Score: {match['score']:.2f}")
+    # Step 4: Search all projects
+    print("\n🚀 Searching all projects...\n")
+    for idx, row in csv_df.iterrows():
+        # Skip projects with no loan IDs
 
-        print("  📰 Articles in this cluster:")
-        for article in clustered[cluster_id]:
-            title = article.get('translatedTitle') or article.get('originalTitle') or 'Untitled'
-            source = article.get('source', 'unknown')
-            print(f"  - {title} (from {source})")
+        loanId = row.get("BU ID")
+        if not loanId or loanId not in loanIds:
+            continue
 
+        project_text = build_project_text(row)
+        embedding = model.encode([project_text], normalize_embeddings=True)
+
+        results = collection.query(
+            query_embeddings=embedding,
+            n_results=3,
+            include=["metadatas", "distances"],
+        )
+
+        if not results["metadatas"][0]:
+            continue
+
+        print(f"\n🔍 Project {loanId}: {row.get('Project Name', 'Unnamed')}")
+
+        for meta, dist in zip(results["metadatas"][0], results["distances"][0]):
+            score = 1 - dist  # cosine similarity
+            title = meta.get("translatedTitle") or meta.get("originalTitle") or "Untitled"
+            source = meta.get("source") or "unknown"
+
+            if score < 0.69:
+                continue
+
+            print(f"  ✅ {title} (from {source}) — Score: {score:.2f}")
+
+            # Patch article with matched BUID
+            #patch_payload = {
+            #    "Id": article_id,
+            #    "Possible.BUIDs": buid,
+            #}
+
+            #requests.patch(
+            #    os.getenv("NOCO_DB_URL"),  # Full PATCH URL to the article
+            #    headers=headers,
+            #    json=patch_payload,
+            #)
 
 
 if __name__ == "__main__":

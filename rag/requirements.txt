@@ -6,3 +6,4 @@ pandas
 numpy
 chromadb
 hf_xet
+rapidfuzz

@@ -9,6 +9,7 @@ import requests
 from sklearn.cluster import DBSCAN
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+from rapidfuzz import fuzz
 
 CACHE_PATH = "/app/output/fetched_articles.json"
 CHROMA_CACHE_PATH = "/app/output/chroma_cache.json"
@@ -146,13 +147,29 @@ def build_project_text(row):
         str(row.get("Lender", ""))
     ])
 
+FIELD_WEIGHTS = {
+    "translatedTitle": 5,
+    "webScrapedContent": 3,
+    "translatedContent": 2,
+    "originalContent": 1,
+    "source": 1
+}
+
+def weighted_text(article):
+    return " ".join([
+        (article.get(field) or "") * weight
+        for field, weight in FIELD_WEIGHTS.items()
+    ])
+
 def rerank(project_text, candidates):
     pairs = [(project_text, c["document"]) for c in candidates]
     reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
     scores = reranker.predict(pairs)
     for i, score in enumerate(scores):
         candidates[i]["rerank_score"] = float(score)
-    return sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
+        # Add fuzzy match as backup if semantic score is low
+        candidates[i]["fuzzy_title_score"] = fuzz.token_set_ratio(project_text, candidates[i]["article"].get("translatedTitle", "")) / 100.0
+    return sorted(candidates, key=lambda x: (x["rerank_score"], x["fuzzy_title_score"]), reverse=True)
 
 def main():
     if os.path.exists(CACHE_PATH):
@@ -179,7 +196,7 @@ def main():
         embedding = model.encode([project_text], normalize_embeddings=True)
         results = collection.query(
             query_embeddings=embedding,
-            n_results=20,
+            n_results=30,
             include=["metadatas", "documents", "distances"]
         )
         if not results["documents"][0]:
@@ -189,14 +206,14 @@ def main():
             score = 1 - dist
             candidates.append({"score": score, "article": meta, "document": doc})
         reranked = rerank(project_text, candidates)
-        reranked = [r for r in reranked if r["rerank_score"] >= 0.5]  # Filter weak matches
+        reranked = [r for r in reranked if r["rerank_score"] >= 0.5 or r["fuzzy_title_score"] > 0.85]
         if not reranked:
             continue
         print(f"\n🔍 Project {loanId}: {row.get('Project Name', 'Unnamed')}")
         for result in reranked[:3]:
             title = result["article"].get("translatedTitle") or result["article"].get("originalTitle") or "Untitled"
             source = result["article"].get("source") or "unknown"
-            print(f"  ✅ {title} (from {source}) — Cosine: {result['score']:.2f}, Rerank: {result['rerank_score']:.2f}")
+            print(f"  ✅ {title} (from {source}) — Cosine: {result['score']:.2f}, Rerank: {result['rerank_score']:.2f}, Fuzzy: {result['fuzzy_title_score']:.2f}")
 
 if __name__ == "__main__":
     main()

@@ -36,10 +36,10 @@ def fetch_all_articles(page_size=100, max_records=50000):
     fetched = 0
     while True:
         params = {
-            "fields": "Id,originalTitle,articleUrl,a,b,c,d,webScrapedContent,originalContent,translatedTitle,translatedContent,cluster_id,source,Loans",
+            "fields": "Id,originalTitle,articleUrl,a,b,c,d,webScrapedContent,originalContent,translatedTitle,translatedContent,cluster_id,source,Loans,BU ID",
             "offset": offset,
             "limit": page_size,
-            "where": "(FinanceClassification,isnot,null)",
+            "where": "(BU ID,isnot,null)",
         }
         response = requests.get(db_url, headers=headers, params=params)
         if response.status_code == 422:
@@ -117,7 +117,7 @@ def insert_into_chroma(articles, model, batch_size=5000):
     collection = load_chroma_collection()
     ids, texts, embeddings = embed_articles(articles, model)
     cleaned_metadatas = [
-        {k: (v if v is not None else "unknown") for k, v in a.items() if k not in {"Id", "cluster_id"}}
+        {**{k: (v if v is not None else "unknown") for k, v in a.items() if k != "cluster_id"}, "Id": str(a["Id"])}
         for a in articles
     ]
     total = len(ids)
@@ -171,7 +171,23 @@ def rerank(project_text, candidates):
         candidates[i]["fuzzy_title_score"] = fuzz.token_set_ratio(project_text, candidates[i]["article"].get("translatedTitle", "")) / 100.0
     return sorted(candidates, key=lambda x: (x["rerank_score"], x["fuzzy_title_score"]), reverse=True)
 
+def patch_article_buid(article_id, buid, score):
+    db_url = os.getenv("NOCO_DB_URL")
+    headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
+    patch_data = {
+        "Id": article_id,
+        "Possible.BUIDs": f"{buid} - {round(score, 2)}",
+    }
+    try:
+        response = requests.patch(f"{db_url}", headers=headers, json=patch_data)
+
+        if response.status_code != 200:
+            print(f"⚠️ Failed to patch {article_id} — {response.status_code}: {response.text}")
+    except Exception as e:
+        print(f"❌ Exception patching {article_id}: {e}")
+
 def main():
+    update_map = {}  # {article_id: [(buid, score), ...]}
     if os.path.exists(CACHE_PATH):
         print("📁 Loading articles from disk...")
         raw_articles = load_articles_from_disk(CACHE_PATH)
@@ -210,10 +226,22 @@ def main():
         if not reranked:
             continue
         print(f"\n🔍 Project {loanId}: {row.get('Project Name', 'Unnamed')}")
-        for result in reranked[:3]:
+        for result in reranked:
             title = result["article"].get("translatedTitle") or result["article"].get("originalTitle") or "Untitled"
             source = result["article"].get("source") or "unknown"
-            print(f"  ✅ {title} (from {source}) — Cosine: {result['score']:.2f}, Rerank: {result['rerank_score']:.2f}, Fuzzy: {result['fuzzy_title_score']:.2f}")
+            article_id = result["article"].get("Id")
+            match_score = result["rerank_score"]
+            print(f"  ✅ {title} (from {source}) — Cosine: {result['score']:.2f}, Rerank: {match_score:.2f}, Fuzzy: {result['fuzzy_title_score']:.2f}")
+            if article_id:
+                if article_id not in update_map:
+                    update_map[article_id] = []
+                update_map[article_id].append((loanId, match_score))
+
+    # Perform batch patching after all rows are processed
+    print("📤 Updating matched BU IDs...")
+    for article_id, matches in update_map.items():
+        best_match = max(matches, key=lambda x: x[1])  # keep best score
+        patch_article_buid(article_id, best_match[0], best_match[1])
 
 if __name__ == "__main__":
     main()

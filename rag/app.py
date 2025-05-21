@@ -7,8 +7,11 @@ import requests
 
 CSV_PATH = "/app/database.csv"
 CHROMA_CACHE_PATH = "/app/output/chroma_cache.json"
+CACHE_PATH = "/app/output/fetched_articles.json"
+CHROMA_PATH = "/data"
 
-loanIds = [
+# Proven set of BU IDs to include
+loanIds = set([
     "EG.056", "EG.058", "DJ.007", "UG.044", "UG.041", "DJ.003", "DJ.017", "NG.034", "GA.006",
     "GA.037", "GA.038", "GA.015", "GA.045", "ID.O.1", "GA.004", "GA.042", "LA.W.1", "ER.016",
     "KE.101", "ER.005", "ER.008", "ER.011", "ER.010", "ER.004", "EG.057", "ER.019", "ER.022",
@@ -20,7 +23,7 @@ loanIds = [
     "BR.E.002", "BR.E.003", "AO.001.", "GH.001.A", "GH.001.B", "KE.105", "KE.106", "KE.071",
     "KE.058", "KE.010", "KE.107", "MA.027", "TN.030", "GA.003", "GA.044", "CM.010", "CM.028",
     "CM.008", "CM.039", "UG.018", "UG.034", "AO.148", "EG.059", "BR.015"
-]
+])
 
 FIELD_WEIGHTS = {
     "Project Name": 5,
@@ -36,16 +39,32 @@ FIELD_WEIGHTS = {
 }
 
 def build_project_text(row):
-    return " | ".join([
-        (str(row.get(field, "")) * FIELD_WEIGHTS.get(field, 1)) for field in FIELD_WEIGHTS
-    ])
+    # Use field names for context and concatenate all relevant fields, skipping empty/null
+    fields = [
+        ("Project Name", 5),
+        ("Loan Sign Year", 1),
+        ("Loan Type", 1),
+        ("Borrowing Entity", 2),
+        ("Country", 2),
+        ("Region (UN)", 1),
+        ("Reported Amount in millions", 1),
+        ("Sector", 2),
+        ("Sub-sector", 2),
+        ("Lender", 2)
+    ]
+    parts = []
+    for field, weight in fields:
+        value = row.get(field, "")
+        if pd.notnull(value) and str(value).strip():
+            parts.append(f"{field}: " + (str(value) + " ") * weight)
+    return "| ".join(parts)
 
 def load_chroma_collection():
-    chroma_client = chromadb.PersistentClient('/data')
+    chroma_client = chromadb.PersistentClient(CHROMA_PATH)
     return chroma_client.get_or_create_collection("projects", metadata={"hnsw:space": "cosine"})
 
 def insert_projects_into_chroma(csv_df, model):
-    csv_df = csv_df[csv_df["BU ID"].notna() & csv_df["BU ID"].isin(loanIds)]
+    csv_df = csv_df[csv_df["BU ID"].isin(loanIds) & csv_df["BU ID"].notna()]
     csv_df = csv_df.drop_duplicates(subset="BU ID")
     if os.path.exists(CHROMA_CACHE_PATH):
         print("📁 Skipping ChromaDB insert — already cached")
@@ -55,7 +74,7 @@ def insert_projects_into_chroma(csv_df, model):
     embeddings = model.encode(texts, normalize_embeddings=True)
     ids = [str(row["BU ID"]) for _, row in csv_df.iterrows()]
     metadatas = [
-        {"BU ID": str(row["BU ID"]), "Project Name": row.get("Project Name", "")}
+        {"BU ID": str(row["BU ID"]), "Project Name": row.get("Project Name", ""), "Country": row.get("Country", "")}
         for _, row in csv_df.iterrows()
     ]
     collection.add(ids=ids, documents=texts, embeddings=embeddings, metadatas=metadatas)
@@ -70,7 +89,7 @@ def fetch_all_articles(page_size=100, max_records=50000):
     fetched = 0
     while True:
         params = {
-            "fields": "Id,translatedTitle,webScrapedContent,translatedContent,originalContent,source",
+            "fields": "Id,BU ID,translatedTitle,webScrapedContent,translatedContent,originalTitle,originalContent,source,AIScore4_Justification,a,b,c,d",
             "offset": offset,
             "limit": page_size,
             "where": "(BU ID,isnot,null)",
@@ -93,39 +112,60 @@ def fetch_all_articles(page_size=100, max_records=50000):
             break
 
 def weighted_article_text(article):
-    return " ".join([
-        (article.get("translatedTitle") or "") * 3,
-        (article.get("webScrapedContent") or "") * 2,
-        (article.get("translatedContent") or ""),
-        (article.get("originalContent") or ""),
-        (article.get("source") or "")
-    ])
+    # Use field names for context and concatenate all relevant fields
+    parts = []
+    if article.get("translatedTitle"):
+        parts.append("Title: " + article.get("translatedTitle") * 3)
+    if article.get("webScrapedContent"):
+        parts.append("Content: " + article.get("webScrapedContent") * 2)
+    if article.get("translatedContent"):
+        parts.append("TranslatedContent: " + article.get("translatedContent") * 2)
+    if article.get("originalContent"):
+        parts.append("OriginalContent: " + article.get("originalContent"))
+    if article.get("originalTitle"):
+        parts.append("OriginalTitle: " + article.get("originalTitle") * 3)
+    if article.get("a"):
+        parts.append("Country: " + article.get("a") * 4)
+    if article.get("b"):
+        parts.append("Lender: " + article.get("b") * 4)
+    if article.get("c"):
+        parts.append("Keywords: " + article.get("c") * 4)
+    if article.get("d"):
+        parts.append("Project: " + article.get("d") * 4)
+    if article.get("AIScore4_Justification"):
+        parts.append("AIJustification: " + article.get("AIScore4_Justification"))
+    if article.get("source"):
+        parts.append("Source: " + article.get("source"))
 
-def rerank(article_text, candidates):
+    return " | ".join(parts)
+
+def rerank(article_text, candidates, article_country):
     reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-    pairs = [(article_text, c["document"]) for c in candidates]
-    scores = reranker.predict(pairs)
-    for i, score in enumerate(scores):
-        candidates[i]["rerank_score"] = float(score)
-        candidates[i]["buid"] = candidates[i]["article"].get("BU ID")
-    return sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
+    scored = []
+    for c in candidates:
+        buid_country = c["article"].get("Country", "")
+        base_score = reranker.predict([(article_text, c["document"])])[0]
+        if buid_country and article_country:
+            if buid_country.strip().lower() == article_country.strip().lower():
+                base_score += 0.05
+            else:
+                base_score -= 0.1
+        c["rerank_score"] = float(base_score)
+        c["buid"] = c["article"].get("BU ID")
+        scored.append(c)
+    return sorted(scored, key=lambda x: x["rerank_score"], reverse=True)
 
 def patch_article_buid(article_id, buids_and_scores):
     db_url = os.getenv("NOCO_DB_URL")
     headers = {"xc-token": os.getenv("NOCO_XC_TOKEN")}
     possible_buids = ", ".join([f"{buid} - {round(score, 2)}" for buid, score in buids_and_scores])
-    patch_data = {
-        "Id": article_id,
-        "Possible.BUIDs": possible_buids,
-    }
+    patch_data = {"Id": article_id, "Possible.BUIDs": possible_buids}
     try:
         response = requests.patch(f"{db_url}", headers=headers, json=patch_data)
         if response.status_code != 200:
             print(f"⚠️ Failed to patch {article_id} — {response.status_code}: {response.text}")
     except Exception as e:
         print(f"❌ Exception patching {article_id}: {e}")
-
-CACHE_PATH = "/app/output/fetched_articles.json"
 
 def save_articles_to_disk(articles, path=CACHE_PATH):
     with open(path, "w", encoding="utf-8") as f:
@@ -142,7 +182,6 @@ def main():
     insert_projects_into_chroma(csv_df, model)
     collection = load_chroma_collection()
 
-    update_map = {}
     if os.path.exists(CACHE_PATH):
         print("📁 Loading articles from disk...")
         articles = load_articles_from_disk(CACHE_PATH)
@@ -152,33 +191,44 @@ def main():
         save_articles_to_disk(articles)
     print(f"✅ Retrieved {len(articles)} articles")
 
-    print("🔄 Processing articles...")
-    total = len(articles)
-    count = 0
-    for article in articles:
-        count += 1
+    matched_count = 0
+    for idx, article in enumerate(articles):
         article_id = article.get("Id")
-        print(f"{round((count + 1)/total* 100, 2)}%")
-        if not article_id:
+        article_country = article.get("a")
+        print(f"🔎 Processing article {idx+1}/{len(articles)}")
+        if not article_id or not article_country:
             continue
+
+        # Filter loans by country - exact match since we're using standardized country names
+        country_loans = csv_df[csv_df["Country"].str.strip().str.lower() == article_country.strip().lower()]
+        country_buids = set(country_loans["BU ID"].dropna().astype(str))
+        if not country_buids:
+            continue
+
         article_text = weighted_article_text(article)
         embedding = model.encode([article_text], normalize_embeddings=True)
+
+        # Query only loans from that country with more candidates
         results = collection.query(
             query_embeddings=embedding,
-            n_results=30,
+            n_results=75,  # Increased from 50 to 75 to get even more candidates
+            where={"BU ID": {"$in": list(country_buids)}},
             include=["metadatas", "documents", "distances"]
         )
-        candidates = []
-        for meta, doc, dist in zip(results["metadatas"][0], results["documents"][0], results["distances"][0]):
-            score = 1 - dist
-            candidates.append({"score": score, "article": meta, "document": doc})
-        reranked = rerank(article_text, candidates)
-        top_matches = [(r["buid"], r["rerank_score"]) for r in reranked][:3]
+
+        candidates = [
+            {"score": 1 - dist, "article": meta, "document": doc}
+            for meta, doc, dist in zip(results["metadatas"][0], results["documents"][0], results["distances"][0])
+        ]
+
+        reranked = rerank(article_text, candidates, article_country)
+        top_matches = [(r["buid"], r["rerank_score"]) for r in reranked][:5]
         if top_matches:
             patch_article_buid(article_id, top_matches)
-            update_map[article_id] = top_matches
+            matched_count += 1
 
-    print("📤 Done updating matched BU IDs.")
+    print(f"📤 Done updating matched BU IDs. Matched {matched_count}/{len(articles)} articles.")
 
 if __name__ == "__main__":
     main()
+
